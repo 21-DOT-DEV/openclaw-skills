@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: macos-15
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Swift version
+        run: swift --version
+
+      - name: Build all packages
+        run: make build-all
+
+      - name: Run tests
+        run: make test
+        timeout-minutes: 10
