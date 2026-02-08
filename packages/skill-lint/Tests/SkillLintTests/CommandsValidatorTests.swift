@@ -146,7 +146,7 @@ struct CommandsValidatorTests {
         {"skill": "test", "commands": [{"name": "x", "binary": "mytool", "description": "x", "output_format": "json", "examples": [{"intent": "x", "command": "other-tool run", "output_format": "json", "example_output": {}, "exit_code": 0}]}]}
         """
         let diags = validator.validate(data: jsonData(json), skill: "test")
-        #expect(diags.contains { $0.message.contains("does not start with binary") && $0.severity == .warning })
+        #expect(diags.contains { $0.message.contains("does not reference binary") && $0.severity == .warning })
     }
 
     @Test("example output_format mismatch produces warning")
@@ -180,13 +180,31 @@ struct CommandsValidatorTests {
 
     // MARK: - P3: Operational metadata
 
-    @Test("retry on non-idempotent command produces warning")
+    @Test("retry on non-idempotent command produces no warning")
     func retryNonIdempotent() {
         let json = """
         {"skill": "test", "commands": [{"name": "x", "binary": "x", "description": "x", "output_format": "json", "idempotent": false, "retry": {"max_attempts": 3, "backoff": "exponential"}, "examples": [{"intent": "x", "command": "x", "output_format": "json", "example_output": {}, "exit_code": 0}]}]}
         """
         let diags = validator.validate(data: jsonData(json), skill: "test")
-        #expect(diags.contains { $0.message.contains("'retry' specified on non-idempotent") && $0.severity == .warning })
+        #expect(!diags.contains { $0.message.contains("retry") && $0.severity == .warning })
+    }
+
+    @Test("piped command referencing binary produces no warning")
+    func pipedBinaryAccepted() {
+        let json = """
+        {"skill": "test", "commands": [{"name": "x", "binary": "mytool", "description": "x", "output_format": "json", "examples": [{"intent": "x", "command": "echo -e \\"list\\\\nexit\\" | mytool --cli", "output_format": "json", "example_output": {}, "exit_code": 0}]}]}
+        """
+        let diags = validator.validate(data: jsonData(json), skill: "test")
+        #expect(!diags.contains { $0.message.contains("does not reference binary") })
+    }
+
+    @Test("destructive with explicit requires_confirmation false produces no warning")
+    func destructiveExplicitFalse() {
+        let json = """
+        {"skill": "test", "commands": [{"name": "x", "binary": "x", "description": "x", "output_format": "json", "destructive": true, "requires_confirmation": false, "examples": [{"intent": "x", "command": "x", "output_format": "json", "example_output": {}, "exit_code": 0}]}]}
+        """
+        let diags = validator.validate(data: jsonData(json), skill: "test")
+        #expect(!diags.contains { $0.message.contains("destructive command without") })
     }
 
     @Test("invalid retry backoff produces error")

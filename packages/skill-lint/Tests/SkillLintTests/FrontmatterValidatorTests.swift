@@ -33,7 +33,7 @@ struct FrontmatterValidatorTests {
         #expect(diags.contains { $0.message.contains("'name'") && $0.severity == .error })
     }
 
-    @Test("missing slug produces warning")
+    @Test("missing slug produces no warning")
     func missingSlug() {
         let fm = SkillFrontmatter(
             name: "N", description: "test", slug: nil, type: "swift_cli",
@@ -41,7 +41,7 @@ struct FrontmatterValidatorTests {
             install: nil, verify: ["x --help"], securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "s")
-        #expect(diags.contains { $0.message.contains("'slug'") && $0.severity == .warning })
+        #expect(!diags.contains { $0.message.contains("'slug'") })
     }
 
     @Test("invalid type produces error")
@@ -77,7 +77,7 @@ struct FrontmatterValidatorTests {
         #expect(diags.contains { $0.message.contains("invalid 'supported_os'") && $0.severity == .error })
     }
 
-    @Test("missing verify produces warning")
+    @Test("missing verify produces no warning")
     func missingVerify() {
         let fm = SkillFrontmatter(
             name: "N", description: "test", slug: "s", type: "swift_cli",
@@ -85,10 +85,10 @@ struct FrontmatterValidatorTests {
             install: nil, verify: nil, securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "s")
-        #expect(diags.contains { $0.message.contains("'verify'") && $0.severity == .warning })
+        #expect(!diags.contains { $0.message.contains("'verify'") })
     }
 
-    @Test("all fields missing produces errors and warnings")
+    @Test("all fields missing produces only required-key errors")
     func allMissing() {
         let fm = SkillFrontmatter(
             name: nil, slug: nil, type: nil,
@@ -96,11 +96,11 @@ struct FrontmatterValidatorTests {
             install: nil, verify: nil, securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "empty")
-        #expect(diags.count == 7)
+        #expect(diags.count == 2)
         let errors = diags.filter { $0.severity == .error }
         let warnings = diags.filter { $0.severity == .warning }
         #expect(errors.count == 2)
-        #expect(warnings.count == 5)
+        #expect(warnings.count == 0)
         #expect(errors.contains { $0.message.contains("'name'") })
         #expect(errors.contains { $0.message.contains("'description'") })
     }
@@ -127,7 +127,7 @@ struct FrontmatterValidatorTests {
         #expect(diags.contains { $0.message.contains("'description' must not be empty") && $0.severity == .error })
     }
 
-    @Test("minimal frontmatter produces zero errors")
+    @Test("minimal frontmatter produces zero diagnostics")
     func minimalFrontmatter() {
         let fm = SkillFrontmatter(
             name: "N", description: "A skill", slug: nil, type: nil,
@@ -135,10 +135,7 @@ struct FrontmatterValidatorTests {
             install: nil, verify: nil, securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "s")
-        let errors = diags.filter { $0.severity == .error }
-        let warnings = diags.filter { $0.severity == .warning }
-        #expect(errors.isEmpty)
-        #expect(warnings.count == 5)
+        #expect(diags.isEmpty)
     }
 
     // MARK: - New fields

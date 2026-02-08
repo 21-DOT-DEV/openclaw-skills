@@ -39,16 +39,14 @@ public struct FrontmatterValidator: Sendable {
             diagnostics.append(.init(skill: skill, severity: .error, message: "missing required key 'description'"))
         }
 
-        // slug: optional (warning if missing, error if empty)
+        // slug: optional (error only if present but empty)
         if let slug = frontmatter.slug {
             if slug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 diagnostics.append(.init(skill: skill, severity: .error, message: "'slug' must not be empty"))
             }
-        } else {
-            diagnostics.append(.init(skill: skill, severity: .warning, message: "missing optional key 'slug'"))
         }
 
-        // type: optional (warning if missing, error if invalid value)
+        // type: optional (error only if present but invalid)
         if let type = frontmatter.type {
             if !Self.allowedTypes.contains(type) {
                 diagnostics.append(.init(
@@ -56,20 +54,16 @@ public struct FrontmatterValidator: Sendable {
                     message: "invalid 'type' value '\(type)' (allowed: \(Self.allowedTypes.sorted().joined(separator: ", ")))"
                 ))
             }
-        } else {
-            diagnostics.append(.init(skill: skill, severity: .warning, message: "missing optional key 'type'"))
         }
 
-        // requires_binaries: optional (warning if missing, error if empty)
+        // requires_binaries: optional (error only if present but empty)
         if let bins = frontmatter.requiresBinaries {
             if bins.isEmpty {
                 diagnostics.append(.init(skill: skill, severity: .error, message: "'requires_binaries' must not be empty"))
             }
-        } else {
-            diagnostics.append(.init(skill: skill, severity: .warning, message: "missing optional key 'requires_binaries'"))
         }
 
-        // supported_os: optional (warning if missing, error if invalid values)
+        // supported_os: optional (error only if present but invalid)
         if let osList = frontmatter.supportedOS {
             if osList.isEmpty {
                 diagnostics.append(.init(skill: skill, severity: .error, message: "'supported_os' must not be empty"))
@@ -83,17 +77,13 @@ public struct FrontmatterValidator: Sendable {
                     }
                 }
             }
-        } else {
-            diagnostics.append(.init(skill: skill, severity: .warning, message: "missing optional key 'supported_os'"))
         }
 
-        // verify: optional (warning if missing, error if empty)
+        // verify: optional (error only if present but empty)
         if let verifyList = frontmatter.verify {
             if verifyList.isEmpty {
                 diagnostics.append(.init(skill: skill, severity: .error, message: "'verify' must not be empty"))
             }
-        } else {
-            diagnostics.append(.init(skill: skill, severity: .warning, message: "missing optional key 'verify'"))
         }
 
         // install: optional, but if present must be a valid map

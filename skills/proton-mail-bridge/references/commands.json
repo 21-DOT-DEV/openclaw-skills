@@ -66,14 +66,14 @@
           "notes": "Returns envelopes (metadata only, not full bodies). Unseen messages have no 'seen' flag."
         },
         {
-          "intent": "Search inbox for urgent messages",
-          "command": "himalaya envelope list -f INBOX -q \"subject:urgent\" -o json",
+          "intent": "Search inbox for unread messages from a sender",
+          "command": "himalaya envelope list -f INBOX -q \"from:alice@example.com\" -o json",
           "output_format": "json",
           "example_output": [
             {
               "id": "44",
-              "from": "boss@company.com",
-              "subject": "URGENT: Server outage",
+              "from": "alice@example.com",
+              "subject": "Q1 Budget Review",
               "date": "2026-02-07T12:00:00Z",
               "flags": []
             }
@@ -166,17 +166,17 @@
       "capability": "organize_email",
       "examples": [
         {
-          "intent": "Move a message to a folder",
-          "command": "himalaya message move 43 -f INBOX -t GitHub -o json",
+          "intent": "Move a message to a triage folder",
+          "command": "himalaya message move 43 -f INBOX -t \"Action Required\" -o json",
           "output_format": "json",
           "example_output": {
             "moved": true,
             "id": "43",
             "from": "INBOX",
-            "to": "GitHub"
+            "to": "Action Required"
           },
           "exit_code": 0,
-          "notes": "Target folder must exist. Used during triage to categorize messages."
+          "notes": "Target folder must exist. PARA folders: Action Required, Waiting On, Read Later, Reference, Archive."
         }
       ]
     },
@@ -208,7 +208,7 @@
             "id": "44"
           },
           "exit_code": 0,
-          "notes": "Adds the IMAP 'flagged' flag. Used during triage for urgent messages."
+          "notes": "Adds the IMAP 'flagged' flag. Used during triage for Action Required and Waiting On messages."
         },
         {
           "intent": "Mark a message as read",

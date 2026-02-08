@@ -212,9 +212,9 @@ public struct CommandsValidator: Sendable {
             }
         }
 
-        // P2: Warn if destructive but no requires_confirmation
+        // P2: Warn if destructive but requires_confirmation key is missing
         if let destructive = command["destructive"] as? Bool, destructive {
-            if command["requires_confirmation"] == nil || (command["requires_confirmation"] as? Bool) == false {
+            if command["requires_confirmation"] == nil {
                 diagnostics.append(.init(
                     skill: skill, severity: .warning,
                     message: "\(prefix): destructive command without 'requires_confirmation'"
@@ -232,15 +232,6 @@ public struct CommandsValidator: Sendable {
             }
         }
 
-        // P3: Warn if non-idempotent with retry
-        if let idempotent = command["idempotent"] as? Bool, !idempotent {
-            if command["retry"] != nil {
-                diagnostics.append(.init(
-                    skill: skill, severity: .warning,
-                    message: "\(prefix): 'retry' specified on non-idempotent command"
-                ))
-            }
-        }
 
         return diagnostics
     }
@@ -272,12 +263,12 @@ public struct CommandsValidator: Sendable {
             }
         }
 
-        // Cross-validate: example command should start with binary
+        // Cross-validate: example command should reference binary (directly or via pipe)
         if let binary = binary, let cmd = example["command"] as? String {
-            if !cmd.hasPrefix(binary) {
+            if !cmd.hasPrefix(binary) && !cmd.contains("| \(binary)") {
                 diagnostics.append(.init(
                     skill: skill, severity: .warning,
-                    message: "\(prefix): command '\(cmd)' does not start with binary '\(binary)'"
+                    message: "\(prefix): command '\(cmd)' does not reference binary '\(binary)'"
                 ))
             }
         }

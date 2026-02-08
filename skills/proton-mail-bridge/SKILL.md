@@ -157,19 +157,23 @@ Maximum 5 outbound emails per hour (OE-03).
 
 ## Smart Triage
 
-The agent can categorize incoming email using rules defined in
-[references/triage-rules.md](references/triage-rules.md). Categories:
+The agent triages incoming email using a PARA-aligned decision tree
+defined in [references/triage-rules.md](references/triage-rules.md).
+Every message is routed out of Inbox (Inbox Zero invariant):
 
-| Category | Action |
-|----------|--------|
-| **Urgent** | Flag, notify user immediately |
-| **Attention needed** | Flag, queue for review |
-| **GitHub** | Move to GitHub folder, summarize |
-| **Newsletter** | Move to Newsletters folder, skip |
-| **Unknown** | Leave in inbox |
+| Folder | Purpose | Agent Action |
+|--------|---------|--------------|
+| **Action Required** | Needs user's response/decision | Flag + notify |
+| **Waiting On** | User sent last, awaiting reply | Flag |
+| **Read Later** | Newsletters, digests, links | Move silently |
+| **Reference** | Receipts, confirmations, docs | Move silently |
+| **Archive** | Everything else | Move silently |
 
-See the reference file for full criteria, himalaya commands per
-category, and the triage workflow.
+The decision tree applies security rules first (IE-*), then routes
+through 14 priority-ordered steps including VIP sender detection,
+deadline extraction, and thread consolidation. See the reference
+file for full detection heuristics, periodic sweep tasks, and the
+triage summary format.
 
 ## Bridge Management
 
