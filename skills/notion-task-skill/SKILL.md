@@ -1,5 +1,7 @@
 ---
 name: notion-task-skill
+slug: notion-task-skill
+type: swift_cli
 description: >
   Manage Notion-backed tasks via the ntask CLI. All task operations are
   performed exclusively by executing the ntask binary—never by calling the
@@ -10,6 +12,43 @@ tags:
   - notion
   - tasks
   - project-management
+requires_binaries:
+  - ntask
+supported_os:
+  - macos
+  - linux
+install:
+  macos: "Run 'make build SKILL=notion-task-skill' from the repo root."
+  linux: "Run 'make build SKILL=notion-task-skill' from the repo root."
+verify:
+  - "ntask --version"
+  - "ntask doctor"
+verify_install:
+  - "ntask --version"
+verify_ready:
+  - "ntask doctor"
+risk_level: medium
+output_format: json
+output_parsing:
+  success_json_path: ".ok"
+  error_json_path: ".error.message"
+capabilities:
+  - id: diagnostics
+    description: "Validate environment, credentials, and print version info"
+    destructive: false
+  - id: query
+    description: "Get, list, search, and comment on tasks"
+    destructive: false
+  - id: lifecycle
+    description: "Claim, heartbeat, complete, block, review, and cancel tasks"
+    destructive: true
+    requires_confirmation: true
+  - id: management
+    description: "Create and update tasks"
+    destructive: true
+security_notes: >
+  Requires NOTION_TOKEN and NOTION_TASKS_DB_ID environment variables.
+  Never log or expose these values.
 ---
 
 # Notion Task Skill
@@ -86,6 +125,11 @@ surface the issue to the user. Never retry the same claim blindly.
 
 Every response from ntask is structured JSON. Always parse it programmatically.
 Do not attempt to regex-match or string-split the output.
+
+## Structured Examples
+
+See [references/examples.json](references/examples.json) for canonical
+command/response examples in machine-readable format.
 
 ## References
 

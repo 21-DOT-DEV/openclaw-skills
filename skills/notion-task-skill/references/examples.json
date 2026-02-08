@@ -1,0 +1,130 @@
+[
+  {
+    "intent": "Check if the environment is properly configured",
+    "command": "ntask doctor",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "checks": {
+        "notion_cli": { "found": true, "version": "0.6.0" },
+        "env_NOTION_TOKEN": true,
+        "env_NOTION_TASKS_DB_ID": true,
+        "db_accessible": true
+      }
+    },
+    "exit_code": 0,
+    "notes": "Run this first to validate credentials and connectivity"
+  },
+  {
+    "intent": "Get the highest-priority ready task",
+    "command": "ntask next",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "task": {
+        "page_id": "abc-123",
+        "task_id": "TASK-42",
+        "status": "READY",
+        "priority": 1
+      }
+    },
+    "exit_code": 0,
+    "notes": "Returns null task if no ready tasks exist"
+  },
+  {
+    "intent": "Claim a task for this agent run",
+    "command": "ntask claim --page-id abc-123 --run-id run-001 --agent-name my-agent",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "task": {
+        "page_id": "abc-123",
+        "task_id": "TASK-42",
+        "status": "IN_PROGRESS",
+        "claimed_by": "AGENT",
+        "agent_run_id": "run-001",
+        "lock_token": "uuid-lock-token"
+      }
+    },
+    "exit_code": 0,
+    "destructive": true,
+    "notes": "Save the lock_token for subsequent heartbeat/complete/block calls"
+  },
+  {
+    "intent": "Mark a task as completed",
+    "command": "ntask complete --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "task": {
+        "page_id": "abc-123",
+        "task_id": "TASK-42",
+        "status": "DONE"
+      }
+    },
+    "exit_code": 0,
+    "destructive": true,
+    "notes": "Requires valid lock_token from a prior claim"
+  },
+  {
+    "intent": "Create a new task",
+    "command": "ntask create --title \"Fix login bug\" --priority 2",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "task": {
+        "page_id": "new-456",
+        "task_id": "TASK-99",
+        "status": "READY",
+        "priority": 2
+      }
+    },
+    "exit_code": 0,
+    "destructive": true
+  },
+  {
+    "intent": "List all tasks with a status filter",
+    "command": "ntask list --status IN_PROGRESS",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "tasks": [
+        { "page_id": "abc-123", "task_id": "TASK-42", "status": "IN_PROGRESS" }
+      ]
+    },
+    "exit_code": 0
+  },
+  {
+    "intent": "Get full details of a specific task",
+    "command": "ntask get --page-id abc-123",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "task": {
+        "page_id": "abc-123",
+        "task_id": "TASK-42",
+        "status": "IN_PROGRESS",
+        "priority": 1,
+        "acceptance_criteria": "Login works with valid credentials"
+      }
+    },
+    "exit_code": 0
+  },
+  {
+    "intent": "Block a task with a reason",
+    "command": "ntask block --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token --reason \"Waiting on API access\"",
+    "output_format": "json",
+    "example_output": {
+      "ok": true,
+      "task": {
+        "page_id": "abc-123",
+        "task_id": "TASK-42",
+        "status": "BLOCKED",
+        "reason": "Waiting on API access"
+      }
+    },
+    "exit_code": 0,
+    "destructive": true,
+    "notes": "Use when the task cannot proceed due to external blockers"
+  }
+]

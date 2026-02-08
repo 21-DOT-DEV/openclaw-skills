@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "notion-task-cli",
+    name: "notion-task-skill",
     platforms: [
         .macOS(.v13)
     ],

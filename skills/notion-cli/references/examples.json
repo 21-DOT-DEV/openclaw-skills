@@ -1,0 +1,77 @@
+[
+  {
+    "intent": "Search for pages by keyword",
+    "command": "notion search --query \"Meeting Notes\"",
+    "output_format": "json",
+    "example_output": {
+      "results": [
+        {
+          "id": "page-abc-123",
+          "title": "Meeting Notes - Sprint 42",
+          "type": "page",
+          "last_edited": "2026-02-07T10:00:00Z"
+        }
+      ]
+    },
+    "exit_code": 0,
+    "notes": "Returns empty results array if no matches found"
+  },
+  {
+    "intent": "Read a specific page by ID",
+    "command": "notion page get abc-123",
+    "output_format": "json",
+    "example_output": {
+      "id": "abc-123",
+      "title": "Project Plan",
+      "properties": {
+        "Status": "In Progress",
+        "Priority": "High"
+      }
+    },
+    "exit_code": 0
+  },
+  {
+    "intent": "Query entries from a database",
+    "command": "notion database query db-456",
+    "output_format": "json",
+    "example_output": {
+      "results": [
+        {
+          "id": "entry-789",
+          "properties": {
+            "Name": "Task A",
+            "Status": "Done"
+          }
+        }
+      ]
+    },
+    "exit_code": 0,
+    "notes": "Returns all entries; use filters for large databases"
+  },
+  {
+    "intent": "Create a new page under a parent",
+    "command": "notion page create --parent page-abc-123 --title \"New Page\"",
+    "output_format": "json",
+    "example_output": {
+      "id": "new-page-xyz",
+      "title": "New Page",
+      "parent": "page-abc-123"
+    },
+    "exit_code": 0,
+    "destructive": true
+  },
+  {
+    "intent": "Update a page property",
+    "command": "notion page update page-abc-123 --property \"Status\" --value \"Done\"",
+    "output_format": "json",
+    "example_output": {
+      "id": "page-abc-123",
+      "properties": {
+        "Status": "Done"
+      }
+    },
+    "exit_code": 0,
+    "destructive": true,
+    "notes": "Only the updated property is returned in the response"
+  }
+]

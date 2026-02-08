@@ -1,0 +1,35 @@
+[
+  {
+    "intent": "Check if Bridge CLI is accessible",
+    "command": "proton-bridge --cli --help",
+    "output_format": "line_based",
+    "example_output": "Usage: proton-bridge --cli [command]\n\nAvailable commands:\n  list       List accounts\n  info       Show account info\n  login      Log in to account\n  logout     Log out of account\n  change     Change account settings",
+    "exit_code": 0,
+    "notes": "Non-interactive; safe to run as a readiness check"
+  },
+  {
+    "intent": "List all configured Bridge accounts",
+    "command": "proton-bridge --cli -c list",
+    "output_format": "line_based",
+    "example_output": "1: user@proton.me (connected, IMAP: 1143, SMTP: 1025)",
+    "exit_code": 0,
+    "notes": "Accounts are numbered starting at 1. Look for 'connected' or 'disconnected' status."
+  },
+  {
+    "intent": "Get info for a specific account",
+    "command": "proton-bridge --cli -c \"info 1\"",
+    "output_format": "line_based",
+    "example_output": "Account: user@proton.me\nStatus: connected\nIMAP: 127.0.0.1:1143\nSMTP: 127.0.0.1:1025\nMode: SSL",
+    "exit_code": 0,
+    "notes": "Account index is 1-based from the list command"
+  },
+  {
+    "intent": "Log out an account from Bridge",
+    "command": "proton-bridge --cli -c \"logout 1\"",
+    "output_format": "line_based",
+    "example_output": "Account user@proton.me logged out.",
+    "exit_code": 0,
+    "destructive": true,
+    "notes": "Requires re-authentication in GUI mode to log back in"
+  }
+]

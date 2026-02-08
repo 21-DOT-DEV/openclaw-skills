@@ -1,5 +1,5 @@
 # openclaw-skills Makefile
-# Orchestration layer for SwiftPM-based skill packages.
+# Orchestration layer for Swift-backed and external-CLI skill packages.
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
@@ -8,7 +8,7 @@ SHELL := /bin/bash
 # Add new skills here: SKILL_<name> = package_dir:binary_name
 SKILL_notion-task-skill := ntask:ntask
 
-# Derived lists
+# Derived lists (Swift-backed skills only — external_cli skills need no build)
 SKILLS := notion-task-skill
 PACKAGES := ntask
 
@@ -19,6 +19,10 @@ SKILL_BINARIES := notion-task-skill:ntask
 REPO_ROOT := $(shell pwd)
 PACKAGES_DIR := $(REPO_ROOT)/packages
 SKILLS_DIR := $(REPO_ROOT)/skills
+
+# Lint tool package
+LINT_PKG := skill-lint
+LINT_BIN := $(PACKAGES_DIR)/$(LINT_PKG)/.build/release/skill-lint
 
 # ── Build ───────────────────────────────────────────────────────────────────────
 
@@ -39,17 +43,41 @@ endif
 	@echo "✅ Installed $(BIN) → skills/$(SKILL)/bin/$(BIN)"
 
 .PHONY: build-all
-build-all: check-swift ## Build all skills
+build-all: check-swift ## Build all Swift-backed skills
 	@for skill in $(SKILLS); do \
 		$(MAKE) --no-print-directory build SKILL=$$skill || exit 1; \
 	done
-	@echo "✅ All skills built"
+	@echo "✅ All Swift skills built"
+
+# ── Lint ───────────────────────────────────────────────────────────────────────
+
+.PHONY: build-lint
+build-lint: check-swift ## Build the skill-lint tool
+	@echo "Building skill-lint (release)..."
+	@swift build -c release --package-path $(PACKAGES_DIR)/$(LINT_PKG)
+	@echo "✅ skill-lint built"
+
+.PHONY: lint-skills
+lint-skills: build-lint ## Validate YAML frontmatter in all SKILL.md files
+	@$(LINT_BIN) $(SKILLS_DIR)
+
+# ── List ───────────────────────────────────────────────────────────────────────
+
+.PHONY: list-skills
+list-skills: ## List all discovered skills (directories with SKILL.md)
+	@echo "Discovered skills:"; \
+	for dir in $(SKILLS_DIR)/*/; do \
+		if [ -f "$$dir/SKILL.md" ]; then \
+			name=$$(basename "$$dir"); \
+			echo "  - $$name"; \
+		fi; \
+	done
 
 # ── Test ────────────────────────────────────────────────────────────────────────
 
 .PHONY: test
 test: check-swift ## Run all package tests
-	@for pkg in $(PACKAGES); do \
+	@for pkg in $(PACKAGES) $(LINT_PKG); do \
 		echo "━━━ Testing $$pkg ━━━"; \
 		swift test --package-path $(PACKAGES_DIR)/$$pkg || exit 1; \
 		echo ""; \
@@ -95,12 +123,25 @@ doctor: ## Verify development environment
 	else \
 		echo "  ⚠️  notion not found (needed at runtime, not for building)"; \
 	fi; \
+	if command -v proton-bridge >/dev/null 2>&1; then \
+		echo "  ✅ proton-bridge found"; \
+	else \
+		echo "  ⚠️  proton-bridge not found (needed at runtime for proton-mail-bridge skill)"; \
+	fi; \
 	echo ""; \
 	echo "Repository structure:"; \
 	if [ -d "$(SKILLS_DIR)" ]; then echo "  ✅ skills/ exists"; else echo "  ❌ skills/ missing"; ERRORS=$$((ERRORS + 1)); fi; \
 	if [ -d "$(PACKAGES_DIR)" ]; then echo "  ✅ packages/ exists"; else echo "  ❌ packages/ missing"; ERRORS=$$((ERRORS + 1)); fi; \
 	echo ""; \
-	echo "Skill binaries:"; \
+	echo "Discovered skills:"; \
+	for dir in $(SKILLS_DIR)/*/; do \
+		if [ -f "$$dir/SKILL.md" ]; then \
+			name=$$(basename "$$dir"); \
+			echo "  ✅ $$name"; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "Swift skill binaries:"; \
 	for entry in $(SKILL_BINARIES); do \
 		skill=$$(echo "$$entry" | cut -d: -f1); \
 		bin=$$(echo "$$entry" | cut -d: -f2); \
@@ -121,23 +162,23 @@ doctor: ## Verify development environment
 # ── Install ─────────────────────────────────────────────────────────────────────
 
 .PHONY: install
-install: build-all ## Install skills into a workspace (usage: make install WORKSPACE=/path [MODE=symlink|copy])
+install: build-all ## Install all skills into a workspace (usage: make install WORKSPACE=/path [MODE=symlink|copy])
 ifndef WORKSPACE
 	$(error WORKSPACE is required. Usage: make install WORKSPACE=/path/to/workspace)
 endif
 	$(eval MODE ?= copy)
 	@mkdir -p $(WORKSPACE)/skills
-	@for skill in $(SKILLS); do \
-		src=$(SKILLS_DIR)/$$skill; \
+	@for dir in $(SKILLS_DIR)/*/; do \
+		if [ ! -f "$$dir/SKILL.md" ]; then continue; fi; \
+		skill=$$(basename "$$dir"); \
 		dst=$(WORKSPACE)/skills/$$skill; \
-		if [ ! -f "$$src/SKILL.md" ]; then continue; fi; \
 		if [ "$(MODE)" = "symlink" ]; then \
 			rm -rf "$$dst"; \
-			ln -s "$$src" "$$dst"; \
+			ln -s "$$dir" "$$dst"; \
 			echo "  🔗 $$skill → symlinked"; \
 		else \
 			rm -rf "$$dst"; \
-			cp -R "$$src" "$$dst"; \
+			cp -R "$$dir" "$$dst"; \
 			echo "  📦 $$skill → copied"; \
 		fi; \
 	done
@@ -147,7 +188,7 @@ endif
 
 .PHONY: clean
 clean: ## Remove all build artifacts
-	@for pkg in $(PACKAGES); do \
+	@for pkg in $(PACKAGES) $(LINT_PKG); do \
 		echo "Cleaning $$pkg..."; \
 		rm -rf $(PACKAGES_DIR)/$$pkg/.build; \
 	done
@@ -165,5 +206,5 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Skills: $(SKILLS)"
-	@echo "Packages: $(PACKAGES)"
+	@echo "Swift skills: $(SKILLS)"
+	@echo "Packages: $(PACKAGES) $(LINT_PKG)"
