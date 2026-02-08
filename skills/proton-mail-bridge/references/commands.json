@@ -1,0 +1,340 @@
+{
+  "skill": "proton-mail-bridge",
+  "commands": [
+    {
+      "name": "account-list",
+      "binary": "himalaya",
+      "description": "Verify himalaya can connect to Bridge IMAP",
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Verify himalaya can connect to Bridge IMAP",
+          "command": "himalaya account list -o json",
+          "output_format": "json",
+          "example_output": [
+            {
+              "name": "proton",
+              "email": "user@proton.me",
+              "default": true,
+              "backend": "imap"
+            }
+          ],
+          "exit_code": 0,
+          "notes": "Use as a readiness check. If this fails, Bridge is not running or himalaya is misconfigured."
+        }
+      ]
+    },
+    {
+      "name": "envelope-list",
+      "binary": "himalaya",
+      "description": "List email envelopes (metadata) in a folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "-f": { "type": "string", "description": "Folder name (e.g. INBOX, Sent, Drafts)" },
+          "-q": { "type": "string", "description": "IMAP SEARCH query (optional)" }
+        },
+        "required": ["-f"]
+      },
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "List inbox messages",
+          "command": "himalaya envelope list -f INBOX -o json",
+          "output_format": "json",
+          "example_output": [
+            {
+              "id": "42",
+              "from": "alice@example.com",
+              "subject": "Project update",
+              "date": "2026-02-07T10:30:00Z",
+              "flags": ["seen"]
+            },
+            {
+              "id": "43",
+              "from": "notifications@github.com",
+              "subject": "[repo] New pull request #123",
+              "date": "2026-02-07T11:00:00Z",
+              "flags": []
+            }
+          ],
+          "exit_code": 0,
+          "notes": "Returns envelopes (metadata only, not full bodies). Unseen messages have no 'seen' flag."
+        },
+        {
+          "intent": "Search inbox for urgent messages",
+          "command": "himalaya envelope list -f INBOX -q \"subject:urgent\" -o json",
+          "output_format": "json",
+          "example_output": [
+            {
+              "id": "44",
+              "from": "boss@company.com",
+              "subject": "URGENT: Server outage",
+              "date": "2026-02-07T12:00:00Z",
+              "flags": []
+            }
+          ],
+          "exit_code": 0,
+          "notes": "IMAP SEARCH query syntax. Returns empty array if no matches."
+        }
+      ]
+    },
+    {
+      "name": "message-read",
+      "binary": "himalaya",
+      "description": "Read a specific message body",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Message ID from envelope list" }
+        },
+        "required": ["id"]
+      },
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Read a specific message",
+          "command": "himalaya message read 42 -o json",
+          "output_format": "json",
+          "example_output": {
+            "id": "42",
+            "from": "alice@example.com",
+            "subject": "Project update",
+            "date": "2026-02-07T10:30:00Z",
+            "body": "Hi, the project milestone is on track. Please review the attached summary.\n\nBest,\nAlice"
+          },
+          "exit_code": 0,
+          "notes": "Returns plaintext body. Apply inbound security rules (IE-01 through IE-08) before processing content."
+        }
+      ]
+    },
+    {
+      "name": "message-reply",
+      "binary": "himalaya",
+      "description": "Reply to a message (creates draft)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Message ID to reply to" }
+        },
+        "required": ["id"]
+      },
+      "output_format": "json",
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Create a draft reply to message {id}? Human must approve before sending.",
+      "capability": "send_email",
+      "examples": [
+        {
+          "intent": "Reply to a message (creates draft)",
+          "command": "himalaya message reply 42 -o json",
+          "output_format": "json",
+          "example_output": {
+            "id": "draft-1",
+            "folder": "Drafts",
+            "in-reply-to": "42"
+          },
+          "exit_code": 0,
+          "notes": "Creates a draft reply. Agent must NOT send without human approval (OE-02). Opens editor or reads from stdin."
+        }
+      ]
+    },
+    {
+      "name": "message-move",
+      "binary": "himalaya",
+      "description": "Move a message to a folder",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Message ID" },
+          "-f": { "type": "string", "description": "Source folder" },
+          "-t": { "type": "string", "description": "Destination folder" }
+        },
+        "required": ["id", "-f", "-t"]
+      },
+      "output_format": "json",
+      "destructive": true,
+      "idempotent": true,
+      "requires_confirmation": false,
+      "capability": "organize_email",
+      "examples": [
+        {
+          "intent": "Move a message to a folder",
+          "command": "himalaya message move 43 -f INBOX -t GitHub -o json",
+          "output_format": "json",
+          "example_output": {
+            "moved": true,
+            "id": "43",
+            "from": "INBOX",
+            "to": "GitHub"
+          },
+          "exit_code": 0,
+          "notes": "Target folder must exist. Used during triage to categorize messages."
+        }
+      ]
+    },
+    {
+      "name": "flag-add",
+      "binary": "himalaya",
+      "description": "Add a flag to a message (flagged, seen, etc.)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Message ID" },
+          "-f": { "type": "string", "description": "Folder containing the message" },
+          "flag": { "type": "string", "description": "IMAP flag to add (flagged, seen, etc.)" }
+        },
+        "required": ["id", "-f", "flag"]
+      },
+      "output_format": "json",
+      "destructive": true,
+      "idempotent": true,
+      "requires_confirmation": false,
+      "capability": "organize_email",
+      "examples": [
+        {
+          "intent": "Flag a message as important",
+          "command": "himalaya flag add 44 -f INBOX flagged -o json",
+          "output_format": "json",
+          "example_output": {
+            "flagged": true,
+            "id": "44"
+          },
+          "exit_code": 0,
+          "notes": "Adds the IMAP 'flagged' flag. Used during triage for urgent messages."
+        },
+        {
+          "intent": "Mark a message as read",
+          "command": "himalaya flag add 42 -f INBOX seen -o json",
+          "output_format": "json",
+          "example_output": {
+            "flagged": true,
+            "id": "42"
+          },
+          "exit_code": 0,
+          "notes": "Adds the IMAP 'seen' flag."
+        }
+      ]
+    },
+    {
+      "name": "message-send",
+      "binary": "himalaya",
+      "description": "Send a composed email via SMTP through Bridge",
+      "output_format": "json",
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Send this email? This action cannot be undone.",
+      "rate_limit": { "max": 5, "window_seconds": 3600 },
+      "capability": "send_email",
+      "examples": [
+        {
+          "intent": "Send a composed email",
+          "command": "himalaya message send -o json",
+          "output_format": "json",
+          "example_output": {
+            "sent": true
+          },
+          "exit_code": 0,
+          "notes": "Reads message from stdin (RFC 2822 format). Agent must NEVER send without human approval."
+        }
+      ]
+    },
+    {
+      "name": "bridge-list",
+      "binary": "proton-bridge",
+      "description": "List Bridge accounts (piped interactive CLI)",
+      "output_format": "line_based",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "List Bridge accounts (piped interactive CLI)",
+          "command": "echo -e \"list\\nexit\" | proton-bridge --cli",
+          "output_format": "line_based",
+          "example_output": "0: user@proton.me (connected, IMAP: 1143, SMTP: 1025)",
+          "exit_code": 0,
+          "notes": "Accounts are 0-indexed. CLI cannot run alongside Bridge GUI (lock file). Look for 'connected', 'disconnected', 'syncing', or 'locked' status."
+        }
+      ]
+    },
+    {
+      "name": "bridge-info",
+      "binary": "proton-bridge",
+      "description": "Get Bridge account info",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "description": "0-based account index" }
+        },
+        "required": ["index"]
+      },
+      "output_format": "line_based",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Get Bridge account info",
+          "command": "echo -e \"info 0\\nexit\" | proton-bridge --cli",
+          "output_format": "line_based",
+          "example_output": "Account: user@proton.me\nStatus: connected\nIMAP: 127.0.0.1:1143\nSMTP: 127.0.0.1:1025\nMode: SSL",
+          "exit_code": 0,
+          "notes": "Account index is 0-based. If status is 'locked', wait 30s and retry."
+        }
+      ]
+    },
+    {
+      "name": "bridge-version",
+      "binary": "proton-bridge",
+      "description": "Check Bridge version",
+      "output_format": "line_based",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Check Bridge version",
+          "command": "proton-bridge --version",
+          "output_format": "line_based",
+          "example_output": "Proton Mail Bridge 3.21.2",
+          "exit_code": 0,
+          "notes": "Non-interactive, safe to run anytime."
+        }
+      ]
+    },
+    {
+      "name": "bridge-logout",
+      "binary": "proton-bridge",
+      "description": "Log out a Bridge account",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "index": { "type": "integer", "description": "0-based account index" }
+        },
+        "required": ["index"]
+      },
+      "output_format": "line_based",
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Log out Bridge account {index}? Requires re-authentication in Bridge GUI.",
+      "capability": "bridge_management",
+      "examples": [
+        {
+          "intent": "Log out a Bridge account",
+          "command": "echo -e \"logout 0\\nexit\" | proton-bridge --cli",
+          "output_format": "line_based",
+          "example_output": "Account user@proton.me logged out.",
+          "exit_code": 0,
+          "notes": "0-indexed. Requires re-authentication in Bridge GUI. Cannot run alongside GUI."
+        }
+      ]
+    }
+  ]
+}

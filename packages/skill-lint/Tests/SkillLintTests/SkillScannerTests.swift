@@ -34,8 +34,8 @@ struct SkillScannerTests {
     @Test("discovers skills by SKILL.md presence")
     func discoverSkills() throws {
         let dir = try makeTempSkillsDir(skills: [
-            ("alpha", "---\nname: A\nslug: a\ntype: swift_cli\nrequires_binaries:\n  - a\nsupported_os:\n  - macos\nverify:\n  - \"a --version\"\n---\n# Alpha"),
-            ("beta", "---\nname: B\nslug: b\ntype: external_cli\nrequires_binaries:\n  - b\nsupported_os:\n  - linux\nverify:\n  - \"b --help\"\n---\n# Beta"),
+            ("alpha", "---\nname: A\ndescription: Alpha skill\n---\n# Alpha"),
+            ("beta", "---\nname: B\ndescription: Beta skill\n---\n# Beta"),
         ])
         defer { cleanup(dir) }
 
@@ -48,7 +48,7 @@ struct SkillScannerTests {
     @Test("skips directories without SKILL.md")
     func skipNonSkillDirs() throws {
         let dir = try makeTempSkillsDir(skills: [
-            ("has-skill", "---\nname: X\nslug: x\ntype: swift_cli\nrequires_binaries:\n  - x\nsupported_os:\n  - macos\nverify:\n  - \"x -v\"\n---\n"),
+            ("has-skill", "---\nname: X\ndescription: test\n---\n"),
             ("no-skill", nil),
         ])
         defer { cleanup(dir) }
@@ -61,8 +61,8 @@ struct SkillScannerTests {
     @Test("returns sorted results by directory name")
     func sortedResults() throws {
         let dir = try makeTempSkillsDir(skills: [
-            ("zebra", "---\nname: Z\nslug: z\ntype: swift_cli\nrequires_binaries:\n  - z\nsupported_os:\n  - macos\nverify:\n  - \"z\"\n---\n"),
-            ("apple", "---\nname: A\nslug: a\ntype: swift_cli\nrequires_binaries:\n  - a\nsupported_os:\n  - macos\nverify:\n  - \"a\"\n---\n"),
+            ("zebra", "---\nname: Z\ndescription: test\n---\n"),
+            ("apple", "---\nname: A\ndescription: test\n---\n"),
         ])
         defer { cleanup(dir) }
 
@@ -105,16 +105,7 @@ struct SkillScannerTests {
         let content = """
         ---
         name: Good Skill
-        slug: good-skill
-        type: external_cli
-        requires_binaries:
-          - good
-        supported_os:
-          - macos
-          - linux
-        verify:
-          - "good --version"
-        security_notes: "Keep secrets safe"
+        description: A good skill
         ---
         # Good Skill
         """
@@ -122,7 +113,8 @@ struct SkillScannerTests {
         defer { cleanup(dir) }
 
         let results = try scanner.scan(skillsDirectory: dir, strict: false)
-        #expect(results[0].diagnostics.isEmpty)
+        let errors = results[0].diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty)
     }
 
     @Test("invalid frontmatter surfaces validation errors")
@@ -138,8 +130,8 @@ struct SkillScannerTests {
 
         let results = try scanner.scan(skillsDirectory: dir, strict: false)
         #expect(!results[0].diagnostics.isEmpty)
-        #expect(results[0].diagnostics.contains { $0.message.contains("'slug'") })
-        #expect(results[0].diagnostics.contains { $0.message.contains("invalid 'type'") })
+        #expect(results[0].diagnostics.contains { $0.message.contains("'description'") && $0.severity == .error })
+        #expect(results[0].diagnostics.contains { $0.message.contains("invalid 'type'") && $0.severity == .error })
     }
 
     @Test("malformed YAML reports parse error")
@@ -158,7 +150,7 @@ struct SkillScannerTests {
 
     @Test("valid examples.json produces no extra diagnostics")
     func validExamplesJSON() throws {
-        let content = "---\nname: X\nslug: x\ntype: swift_cli\nrequires_binaries:\n  - x\nsupported_os:\n  - macos\nverify:\n  - \"x -v\"\n---\n"
+        let content = "---\nname: X\ndescription: test\n---\n"
         let dir = try makeTempSkillsDir(skills: [("ex-skill", content)])
         defer { cleanup(dir) }
 
@@ -170,12 +162,13 @@ struct SkillScannerTests {
         try json.write(toFile: (refsDir as NSString).appendingPathComponent("examples.json"), atomically: true, encoding: .utf8)
 
         let results = try scanner.scan(skillsDirectory: dir, strict: false)
-        #expect(results[0].diagnostics.isEmpty)
+        let errors = results[0].diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty)
     }
 
     @Test("invalid examples.json surfaces errors")
     func invalidExamplesJSON() throws {
-        let content = "---\nname: X\nslug: x\ntype: swift_cli\nrequires_binaries:\n  - x\nsupported_os:\n  - macos\nverify:\n  - \"x -v\"\n---\n"
+        let content = "---\nname: X\ndescription: test\n---\n"
         let dir = try makeTempSkillsDir(skills: [("bad-ex", content)])
         defer { cleanup(dir) }
 
@@ -189,12 +182,93 @@ struct SkillScannerTests {
 
     @Test("missing examples.json is fine")
     func missingExamplesJSON() throws {
-        let content = "---\nname: X\nslug: x\ntype: swift_cli\nrequires_binaries:\n  - x\nsupported_os:\n  - macos\nverify:\n  - \"x -v\"\n---\n"
+        let content = "---\nname: X\ndescription: test\n---\n"
         let dir = try makeTempSkillsDir(skills: [("no-ex", content)])
         defer { cleanup(dir) }
 
         let results = try scanner.scan(skillsDirectory: dir, strict: false)
-        #expect(results[0].diagnostics.isEmpty)
+        let errors = results[0].diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty)
+    }
+
+    // MARK: - commands.json validation
+
+    @Test("valid commands.json produces no extra errors")
+    func validCommandsJSON() throws {
+        let content = "---\nname: X\ndescription: test\n---\n"
+        let dir = try makeTempSkillsDir(skills: [("cmd-skill", content)])
+        defer { cleanup(dir) }
+
+        let refsDir = (dir as NSString).appendingPathComponent("cmd-skill/references")
+        try FileManager.default.createDirectory(atPath: refsDir, withIntermediateDirectories: true)
+        let json = """
+        {"skill":"cmd-skill","commands":[{"name":"run","binary":"x","description":"do thing","output_format":"json","examples":[{"intent":"x","command":"x run","output_format":"json","example_output":{},"exit_code":0}]}]}
+        """
+        try json.write(toFile: (refsDir as NSString).appendingPathComponent("commands.json"), atomically: true, encoding: .utf8)
+
+        let results = try scanner.scan(skillsDirectory: dir, strict: false)
+        let errors = results[0].diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty)
+    }
+
+    @Test("invalid commands.json surfaces errors")
+    func invalidCommandsJSON() throws {
+        let content = "---\nname: X\ndescription: test\n---\n"
+        let dir = try makeTempSkillsDir(skills: [("bad-cmd", content)])
+        defer { cleanup(dir) }
+
+        let refsDir = (dir as NSString).appendingPathComponent("bad-cmd/references")
+        try FileManager.default.createDirectory(atPath: refsDir, withIntermediateDirectories: true)
+        try "not json".write(toFile: (refsDir as NSString).appendingPathComponent("commands.json"), atomically: true, encoding: .utf8)
+
+        let results = try scanner.scan(skillsDirectory: dir, strict: false)
+        #expect(results[0].diagnostics.contains { $0.message.contains("commands.json") && $0.severity == .error })
+    }
+
+    @Test("commands.json takes precedence over examples.json")
+    func commandsPrecedence() throws {
+        let content = "---\nname: X\ndescription: test\n---\n"
+        let dir = try makeTempSkillsDir(skills: [("both", content)])
+        defer { cleanup(dir) }
+
+        let refsDir = (dir as NSString).appendingPathComponent("both/references")
+        try FileManager.default.createDirectory(atPath: refsDir, withIntermediateDirectories: true)
+        let commandsJson = """
+        {"skill":"both","commands":[{"name":"run","binary":"x","description":"do thing","output_format":"json","examples":[{"intent":"x","command":"x run","output_format":"json","example_output":{},"exit_code":0}]}]}
+        """
+        try commandsJson.write(toFile: (refsDir as NSString).appendingPathComponent("commands.json"), atomically: true, encoding: .utf8)
+        try "[]".write(toFile: (refsDir as NSString).appendingPathComponent("examples.json"), atomically: true, encoding: .utf8)
+
+        let results = try scanner.scan(skillsDirectory: dir, strict: false)
+        #expect(results[0].diagnostics.contains { $0.message.contains("both commands.json and examples.json") && $0.severity == .warning })
+        // Should NOT have examples.json errors since commands.json takes precedence
+        #expect(!results[0].diagnostics.contains { $0.message.contains("examples.json: array must not be empty") })
+    }
+
+    @Test("capability cross-validation warns on unknown capability")
+    func capabilityCrossValidation() throws {
+        let content = """
+        ---
+        name: X
+        description: test
+        capabilities:
+          - id: read
+            description: Read data
+            destructive: false
+        ---
+        """
+        let dir = try makeTempSkillsDir(skills: [("cap-skill", content)])
+        defer { cleanup(dir) }
+
+        let refsDir = (dir as NSString).appendingPathComponent("cap-skill/references")
+        try FileManager.default.createDirectory(atPath: refsDir, withIntermediateDirectories: true)
+        let json = """
+        {"skill":"cap-skill","commands":[{"name":"run","binary":"x","description":"do thing","output_format":"json","capability":"write","examples":[{"intent":"x","command":"x run","output_format":"json","example_output":{},"exit_code":0}]}]}
+        """
+        try json.write(toFile: (refsDir as NSString).appendingPathComponent("commands.json"), atomically: true, encoding: .utf8)
+
+        let results = try scanner.scan(skillsDirectory: dir, strict: false)
+        #expect(results[0].diagnostics.contains { $0.message.contains("capability 'write' not found in frontmatter") && $0.severity == .warning })
     }
 
     // MARK: - Error handling

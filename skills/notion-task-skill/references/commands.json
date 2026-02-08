@@ -1,0 +1,475 @@
+{
+  "skill": "notion-task-skill",
+  "commands": [
+    {
+      "name": "doctor",
+      "binary": "ntask",
+      "description": "Validate environment, credentials, and CLI",
+      "output_format": "json",
+      "exit_codes": {
+        "0": "All checks pass",
+        "3": "MISCONFIGURED — missing env vars or unreachable DB"
+      },
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Check if the environment is properly configured",
+          "command": "ntask doctor",
+          "output_format": "json",
+          "example_output": { "ok": true, "checks": { "notion_cli": { "found": true }, "env_NOTION_TOKEN": true, "db_accessible": true } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "next",
+      "binary": "ntask",
+      "description": "Get the highest-priority ready task",
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success (may return null task if none ready)",
+        "3": "MISCONFIGURED",
+        "5": "API_ERROR"
+      },
+      "destructive": false,
+      "idempotent": true,
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "examples": [
+        {
+          "intent": "Get the highest-priority ready task",
+          "command": "ntask next",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "task_id": "TASK-42",
+              "status": "READY",
+              "priority": 1
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "claim",
+      "binary": "ntask",
+      "description": "Lock a task for this agent run",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--run-id": { "type": "string", "description": "Unique agent run identifier" },
+          "--agent-name": { "type": "string", "description": "Agent name for attribution" }
+        },
+        "required": ["--page-id", "--run-id", "--agent-name"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task claimed",
+        "2": "CONFLICT — task already claimed by another agent",
+        "4": "LOST_LOCK — lock expired",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": false,
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Claim a task for this agent run",
+          "command": "ntask claim --page-id abc-123 --run-id run-001 --agent-name my-agent",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "status": "IN_PROGRESS",
+              "lock_token": "uuid-lock-token"
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "heartbeat",
+      "binary": "ntask",
+      "description": "Extend the lock lease on a claimed task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--run-id": { "type": "string", "description": "Agent run identifier" },
+          "--lock-token": { "type": "string", "description": "Lock token from claim" }
+        },
+        "required": ["--page-id", "--run-id", "--lock-token"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — lease extended",
+        "4": "LOST_LOCK — lock expired or stolen"
+      },
+      "destructive": true,
+      "idempotent": true,
+      "requires_confirmation": false,
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Extend lock on a claimed task",
+          "command": "ntask heartbeat --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "IN_PROGRESS" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "complete",
+      "binary": "ntask",
+      "description": "Mark a task as DONE and record artifacts",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--run-id": { "type": "string", "description": "Agent run identifier" },
+          "--lock-token": { "type": "string", "description": "Lock token from claim" }
+        },
+        "required": ["--page-id", "--run-id", "--lock-token"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task marked DONE",
+        "4": "LOST_LOCK",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": false,
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Mark a task as completed",
+          "command": "ntask complete --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "DONE" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "block",
+      "binary": "ntask",
+      "description": "Mark a task as BLOCKED with reason",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--run-id": { "type": "string", "description": "Agent run identifier" },
+          "--lock-token": { "type": "string", "description": "Lock token from claim" },
+          "--reason": { "type": "string", "description": "Reason for blocking" }
+        },
+        "required": ["--page-id", "--run-id", "--lock-token", "--reason"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task blocked",
+        "4": "LOST_LOCK",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": false,
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Block a task with a reason",
+          "command": "ntask block --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token --reason \"Waiting on API access\"",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "BLOCKED", "reason": "Waiting on API access" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "create",
+      "binary": "ntask",
+      "description": "Create a new task or subtask",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--title": { "type": "string", "description": "Task title" },
+          "--priority": { "type": "integer", "description": "Priority level (1=highest)" }
+        },
+        "required": ["--title"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task created",
+        "3": "MISCONFIGURED",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Create task '{--title}' with priority {--priority}?",
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "capability": "management",
+      "examples": [
+        {
+          "intent": "Create a new task",
+          "command": "ntask create --title \"Fix login bug\" --priority 2",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "new-456",
+              "task_id": "TASK-99",
+              "status": "READY",
+              "priority": 2
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "list",
+      "binary": "ntask",
+      "description": "List tasks with optional status filter",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--status": { "type": "string", "description": "Filter by status (READY, IN_PROGRESS, DONE, BLOCKED, etc.)" }
+        }
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success",
+        "3": "MISCONFIGURED",
+        "5": "API_ERROR"
+      },
+      "destructive": false,
+      "idempotent": true,
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "examples": [
+        {
+          "intent": "List all tasks with a status filter",
+          "command": "ntask list --status IN_PROGRESS",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "tasks": [
+              { "page_id": "abc-123", "task_id": "TASK-42", "status": "IN_PROGRESS" }
+            ]
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "get",
+      "binary": "ntask",
+      "description": "Get full details of a specific task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" }
+        },
+        "required": ["--page-id"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success",
+        "3": "MISCONFIGURED",
+        "5": "API_ERROR"
+      },
+      "destructive": false,
+      "idempotent": true,
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "examples": [
+        {
+          "intent": "Get full details of a specific task",
+          "command": "ntask get --page-id abc-123",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "task_id": "TASK-42",
+              "status": "IN_PROGRESS",
+              "priority": 1,
+              "acceptance_criteria": "Login works with valid credentials"
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "comment",
+      "binary": "ntask",
+      "description": "Add a comment to a task",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--body": { "type": "string", "description": "Comment text" }
+        },
+        "required": ["--page-id", "--body"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": false,
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "capability": "query",
+      "examples": [
+        {
+          "intent": "Add a progress comment to a task",
+          "command": "ntask comment --page-id abc-123 --body \"Completed initial investigation\"",
+          "output_format": "json",
+          "example_output": {
+            "ok": true
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "review",
+      "binary": "ntask",
+      "description": "Move task to REVIEW for human inspection",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--run-id": { "type": "string", "description": "Agent run identifier" },
+          "--lock-token": { "type": "string", "description": "Lock token from claim" }
+        },
+        "required": ["--page-id", "--run-id", "--lock-token"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task moved to REVIEW",
+        "4": "LOST_LOCK"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Move task to REVIEW for human inspection?",
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Submit task for human review",
+          "command": "ntask review --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "REVIEW" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "cancel",
+      "binary": "ntask",
+      "description": "Cancel a task with reason",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--run-id": { "type": "string", "description": "Agent run identifier" },
+          "--lock-token": { "type": "string", "description": "Lock token from claim" },
+          "--reason": { "type": "string", "description": "Cancellation reason" }
+        },
+        "required": ["--page-id", "--run-id", "--lock-token", "--reason"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task cancelled",
+        "4": "LOST_LOCK"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Cancel task? This action cannot be undone.",
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Cancel a task that is no longer needed",
+          "command": "ntask cancel --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token --reason \"Duplicate of TASK-40\"",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "CANCELLED" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "update",
+      "binary": "ntask",
+      "description": "Update task properties (priority, status, etc)",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--page-id": { "type": "string", "description": "Notion page ID" },
+          "--priority": { "type": "integer", "description": "New priority level" },
+          "--status": { "type": "string", "description": "New status" }
+        },
+        "required": ["--page-id"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": true,
+      "requires_confirmation": true,
+      "confirmation_message": "Update task properties?",
+      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
+      "capability": "management",
+      "examples": [
+        {
+          "intent": "Update a task's priority",
+          "command": "ntask update --page-id abc-123 --priority 1",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "priority": 1
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "version",
+      "binary": "ntask",
+      "description": "Print version information",
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Check ntask version",
+          "command": "ntask version",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "version": "0.6.0"
+          },
+          "exit_code": 0
+        }
+      ]
+    }
+  ]
+}

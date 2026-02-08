@@ -16,6 +16,7 @@ public struct Capability: Sendable {
 /// Parsed YAML frontmatter from a SKILL.md file.
 public struct SkillFrontmatter: Sendable {
     public let name: String?
+    public let description: String?
     public let slug: String?
     public let type: String?
     public let requiresBinaries: [String]?
@@ -38,6 +39,7 @@ public struct SkillFrontmatter: Sendable {
 
     public init(
         name: String?,
+        description: String? = nil,
         slug: String?,
         type: String?,
         requiresBinaries: [String]?,
@@ -53,6 +55,7 @@ public struct SkillFrontmatter: Sendable {
         outputParsing: [String: String]? = nil
     ) {
         self.name = name
+        self.description = description
         self.slug = slug
         self.type = type
         self.requiresBinaries = requiresBinaries

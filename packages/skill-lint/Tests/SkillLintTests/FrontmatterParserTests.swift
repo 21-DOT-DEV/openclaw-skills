@@ -33,6 +33,30 @@ struct FrontmatterParserTests {
         #expect(parser.extractRawFrontmatter(from: content) == nil)
     }
 
+    @Test("parses description")
+    func parseDescription() throws {
+        let yaml = """
+        name: My Skill
+        description: "A useful skill for testing"
+        """
+        let fm = try parser.parse(yaml: yaml)
+        #expect(fm.description == "A useful skill for testing")
+    }
+
+    @Test("parses folded multiline description")
+    func parseFoldedDescription() throws {
+        let yaml = """
+        name: My Skill
+        description: >
+          Manage tasks via CLI. Use when creating tasks,
+          checking queues, or updating status.
+        """
+        let fm = try parser.parse(yaml: yaml)
+        #expect(fm.description != nil)
+        #expect(fm.description!.contains("Manage tasks"))
+        #expect(fm.description!.contains("updating status"))
+    }
+
     @Test("parses all required fields")
     func parseRequiredFields() throws {
         let yaml = """

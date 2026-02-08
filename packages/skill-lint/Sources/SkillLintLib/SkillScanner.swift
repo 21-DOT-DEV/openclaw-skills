@@ -6,11 +6,13 @@ public struct SkillScanner: Sendable {
     private let parser: FrontmatterParser
     private let validator: FrontmatterValidator
     private let examplesValidator: ExamplesValidator
+    private let commandsValidator: CommandsValidator
 
     public init() {
         self.parser = FrontmatterParser()
         self.validator = FrontmatterValidator()
         self.examplesValidator = ExamplesValidator()
+        self.commandsValidator = CommandsValidator()
     }
 
     /// A single skill's lint result.
@@ -69,8 +71,24 @@ public struct SkillScanner: Sendable {
                 let frontmatter = try parser.parse(yaml: rawYAML)
                 var diagnostics = validator.validate(frontmatter: frontmatter, skill: skillName)
 
+                let commandsPath = item.appendingPathComponent("references/commands.json").path
                 let examplesPath = item.appendingPathComponent("references/examples.json").path
-                if fm.fileExists(atPath: examplesPath) {
+                let hasCommands = fm.fileExists(atPath: commandsPath)
+                let hasExamples = fm.fileExists(atPath: examplesPath)
+
+                if hasCommands {
+                    let commandsData = try Data(contentsOf: URL(fileURLWithPath: commandsPath))
+                    diagnostics += commandsValidator.validate(data: commandsData, skill: skillName)
+                    diagnostics += crossValidateCapabilities(
+                        commandsData: commandsData, frontmatter: frontmatter, skill: skillName
+                    )
+                    if hasExamples {
+                        diagnostics.append(LintDiagnostic(
+                            skill: skillName, severity: .warning,
+                            message: "both commands.json and examples.json found; commands.json takes precedence"
+                        ))
+                    }
+                } else if hasExamples {
                     let examplesData = try Data(contentsOf: URL(fileURLWithPath: examplesPath))
                     diagnostics += examplesValidator.validate(data: examplesData, skill: skillName)
                 }
@@ -92,6 +110,39 @@ public struct SkillScanner: Sendable {
         }
 
         return results
+    }
+
+    /// Cross-validate capability fields in commands.json against frontmatter capabilities.
+    private func crossValidateCapabilities(
+        commandsData: Data, frontmatter: SkillFrontmatter, skill: String
+    ) -> [LintDiagnostic] {
+        guard let capabilities = frontmatter.capabilities, !capabilities.isEmpty else {
+            return []
+        }
+
+        let capabilityIDs = Set(capabilities.compactMap { $0.id })
+        guard !capabilityIDs.isEmpty else { return [] }
+
+        var diagnostics: [LintDiagnostic] = []
+
+        guard let parsed = try? JSONSerialization.jsonObject(with: commandsData, options: []),
+              let root = parsed as? [String: Any],
+              let commands = root["commands"] as? [[String: Any]] else {
+            return []
+        }
+
+        for (index, command) in commands.enumerated() {
+            if let capability = command["capability"] as? String {
+                if !capabilityIDs.contains(capability) {
+                    diagnostics.append(LintDiagnostic(
+                        skill: skill, severity: .warning,
+                        message: "commands.json[\(index)]: capability '\(capability)' not found in frontmatter capabilities"
+                    ))
+                }
+            }
+        }
+
+        return diagnostics
     }
 }
 

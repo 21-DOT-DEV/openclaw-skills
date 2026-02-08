@@ -9,6 +9,7 @@ struct FrontmatterValidatorTests {
     func validFrontmatter() {
         let fm = SkillFrontmatter(
             name: "Test Skill",
+            description: "A test skill",
             slug: "test-skill",
             type: "external_cli",
             requiresBinaries: ["mycli"],
@@ -32,15 +33,15 @@ struct FrontmatterValidatorTests {
         #expect(diags.contains { $0.message.contains("'name'") && $0.severity == .error })
     }
 
-    @Test("missing slug produces error")
+    @Test("missing slug produces warning")
     func missingSlug() {
         let fm = SkillFrontmatter(
-            name: "N", slug: nil, type: "swift_cli",
+            name: "N", description: "test", slug: nil, type: "swift_cli",
             requiresBinaries: ["x"], supportedOS: ["macos"],
             install: nil, verify: ["x --help"], securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "s")
-        #expect(diags.contains { $0.message.contains("'slug'") && $0.severity == .error })
+        #expect(diags.contains { $0.message.contains("'slug'") && $0.severity == .warning })
     }
 
     @Test("invalid type produces error")
@@ -76,18 +77,18 @@ struct FrontmatterValidatorTests {
         #expect(diags.contains { $0.message.contains("invalid 'supported_os'") && $0.severity == .error })
     }
 
-    @Test("missing verify produces error")
+    @Test("missing verify produces warning")
     func missingVerify() {
         let fm = SkillFrontmatter(
-            name: "N", slug: "s", type: "swift_cli",
+            name: "N", description: "test", slug: "s", type: "swift_cli",
             requiresBinaries: ["x"], supportedOS: ["macos"],
             install: nil, verify: nil, securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "s")
-        #expect(diags.contains { $0.message.contains("'verify'") && $0.severity == .error })
+        #expect(diags.contains { $0.message.contains("'verify'") && $0.severity == .warning })
     }
 
-    @Test("all fields missing produces multiple errors")
+    @Test("all fields missing produces errors and warnings")
     func allMissing() {
         let fm = SkillFrontmatter(
             name: nil, slug: nil, type: nil,
@@ -95,8 +96,49 @@ struct FrontmatterValidatorTests {
             install: nil, verify: nil, securityNotes: nil
         )
         let diags = validator.validate(frontmatter: fm, skill: "empty")
-        #expect(diags.count == 6)
-        #expect(diags.allSatisfy { $0.severity == .error })
+        #expect(diags.count == 7)
+        let errors = diags.filter { $0.severity == .error }
+        let warnings = diags.filter { $0.severity == .warning }
+        #expect(errors.count == 2)
+        #expect(warnings.count == 5)
+        #expect(errors.contains { $0.message.contains("'name'") })
+        #expect(errors.contains { $0.message.contains("'description'") })
+    }
+
+    @Test("missing description produces error")
+    func missingDescription() {
+        let fm = SkillFrontmatter(
+            name: "N", slug: "s", type: "swift_cli",
+            requiresBinaries: ["x"], supportedOS: ["macos"],
+            install: nil, verify: ["x --help"], securityNotes: nil
+        )
+        let diags = validator.validate(frontmatter: fm, skill: "s")
+        #expect(diags.contains { $0.message.contains("'description'") && $0.severity == .error })
+    }
+
+    @Test("empty description produces error")
+    func emptyDescription() {
+        let fm = SkillFrontmatter(
+            name: "N", description: "  ", slug: "s", type: "swift_cli",
+            requiresBinaries: ["x"], supportedOS: ["macos"],
+            install: nil, verify: ["x --help"], securityNotes: nil
+        )
+        let diags = validator.validate(frontmatter: fm, skill: "s")
+        #expect(diags.contains { $0.message.contains("'description' must not be empty") && $0.severity == .error })
+    }
+
+    @Test("minimal frontmatter produces zero errors")
+    func minimalFrontmatter() {
+        let fm = SkillFrontmatter(
+            name: "N", description: "A skill", slug: nil, type: nil,
+            requiresBinaries: nil, supportedOS: nil,
+            install: nil, verify: nil, securityNotes: nil
+        )
+        let diags = validator.validate(frontmatter: fm, skill: "s")
+        let errors = diags.filter { $0.severity == .error }
+        let warnings = diags.filter { $0.severity == .warning }
+        #expect(errors.isEmpty)
+        #expect(warnings.count == 5)
     }
 
     // MARK: - New fields
@@ -104,7 +146,7 @@ struct FrontmatterValidatorTests {
     @Test("valid capabilities produce no diagnostics")
     func validCapabilities() {
         let fm = SkillFrontmatter(
-            name: "N", slug: "s", type: "swift_cli",
+            name: "N", description: "test", slug: "s", type: "swift_cli",
             requiresBinaries: ["x"], supportedOS: ["macos"],
             install: nil, verify: ["x -v"], securityNotes: nil,
             capabilities: [
@@ -160,7 +202,7 @@ struct FrontmatterValidatorTests {
     @Test("valid risk_level passes")
     func validRiskLevel() {
         let fm = SkillFrontmatter(
-            name: "N", slug: "s", type: "swift_cli",
+            name: "N", description: "test", slug: "s", type: "swift_cli",
             requiresBinaries: ["x"], supportedOS: ["macos"],
             install: nil, verify: ["x -v"], securityNotes: nil,
             riskLevel: "high"

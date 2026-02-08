@@ -1,46 +1,9 @@
 ---
 name: Notion CLI
-slug: notion-cli
-type: external_cli
-requires_binaries:
-  - notion
-supported_os:
-  - macos
-  - linux
-install:
-  macos: "Install via Homebrew: brew install salmonumbrella/tap/notion-cli."
-  linux: "Install via npm: npm install -g notion-cli. Requires Node.js 16+."
-verify:
-  - "notion --version"
-  - "notion --help"
-verify_install:
-  - "notion --version"
-verify_ready:
-  - "notion config get token"
-risk_level: medium
-output_format: json
-capabilities:
-  - id: query
-    description: "Search pages, read page content, and query databases"
-    destructive: false
-  - id: create
-    description: "Create new pages and database items"
-    destructive: true
-  - id: update
-    description: "Update existing page properties"
-    destructive: true
-    requires_confirmation: true
-security_notes:
-  - >
-    Requires a Notion integration token. Set via NOTION_TOKEN environment
-    variable or configure with 'notion config set token <TOKEN>'.
-  - >
-    The token grants read/write access to pages and databases shared with
-    the integration. Scope the integration to the minimum required pages.
-  - >
-    Config is stored in ~/.notion-cli/config.json. Ensure this file has
-    restrictive permissions (chmod 600).
-  - "Never log or echo the token value."
+description: >
+  Interact with Notion workspaces via the notion CLI. Use when searching
+  pages, reading page content, querying databases, creating pages, or
+  updating properties. All operations go through the notion CLI binary.
 ---
 
 # Notion CLI
@@ -142,10 +105,10 @@ The CLI outputs JSON by default. Parse output programmatically — do not
 regex-match or string-split results. Check the exit code to determine
 success (0) or failure (non-zero).
 
-## Structured Examples
+## Command Schemas
 
-See [references/examples.json](references/examples.json) for canonical
-command/response examples in machine-readable format.
+See [references/commands.json](references/commands.json) for structured
+command definitions with parameter schemas, exit codes, and examples.
 
 ## Security Notes
 

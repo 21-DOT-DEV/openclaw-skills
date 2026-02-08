@@ -30,6 +30,7 @@ public struct FrontmatterParser: Sendable {
         }
 
         let name = mapping["name"]?.string
+        let description = mapping["description"]?.string
         let slug = mapping["slug"]?.string
         let type = mapping["type"]?.string
 
@@ -97,6 +98,7 @@ public struct FrontmatterParser: Sendable {
 
         return SkillFrontmatter(
             name: name,
+            description: description,
             slug: slug,
             type: type,
             requiresBinaries: requiresBinaries,

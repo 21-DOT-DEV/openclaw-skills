@@ -1,0 +1,172 @@
+{
+  "skill": "notion-cli",
+  "commands": [
+    {
+      "name": "search",
+      "binary": "notion",
+      "description": "Search for pages or databases by keyword",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--query": { "type": "string", "description": "Search query string" }
+        },
+        "required": ["--query"]
+      },
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Search for pages by keyword",
+          "command": "notion search --query \"Meeting Notes\"",
+          "output_format": "json",
+          "example_output": {
+            "results": [
+              {
+                "id": "page-abc-123",
+                "title": "Meeting Notes - Sprint 42",
+                "type": "page",
+                "last_edited": "2026-02-07T10:00:00Z"
+              }
+            ]
+          },
+          "exit_code": 0,
+          "notes": "Returns empty results array if no matches found"
+        }
+      ]
+    },
+    {
+      "name": "page-get",
+      "binary": "notion",
+      "description": "Read a specific page by ID",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page-id": { "type": "string", "description": "Notion page ID" }
+        },
+        "required": ["page-id"]
+      },
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Read a specific page by ID",
+          "command": "notion page get abc-123",
+          "output_format": "json",
+          "example_output": {
+            "id": "abc-123",
+            "title": "Project Plan",
+            "properties": {
+              "Status": "In Progress",
+              "Priority": "High"
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "database-query",
+      "binary": "notion",
+      "description": "Query entries from a database",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "db-id": { "type": "string", "description": "Notion database ID" }
+        },
+        "required": ["db-id"]
+      },
+      "output_format": "json",
+      "destructive": false,
+      "idempotent": true,
+      "examples": [
+        {
+          "intent": "Query entries from a database",
+          "command": "notion database query db-456",
+          "output_format": "json",
+          "example_output": {
+            "results": [
+              {
+                "id": "entry-789",
+                "properties": {
+                  "Name": "Task A",
+                  "Status": "Done"
+                }
+              }
+            ]
+          },
+          "exit_code": 0,
+          "notes": "Returns all entries; use filters for large databases"
+        }
+      ]
+    },
+    {
+      "name": "page-create",
+      "binary": "notion",
+      "description": "Create a new page under a parent",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "--parent": { "type": "string", "description": "Parent page or database ID" },
+          "--title": { "type": "string", "description": "Page title" }
+        },
+        "required": ["--parent", "--title"]
+      },
+      "output_format": "json",
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Create page '{--title}' under parent {--parent}?",
+      "capability": "create",
+      "examples": [
+        {
+          "intent": "Create a new page under a parent",
+          "command": "notion page create --parent page-abc-123 --title \"New Page\"",
+          "output_format": "json",
+          "example_output": {
+            "id": "new-page-xyz",
+            "title": "New Page",
+            "parent": "page-abc-123"
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "page-update",
+      "binary": "notion",
+      "description": "Update a page property",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "page-id": { "type": "string", "description": "Notion page ID" },
+          "--property": { "type": "string", "description": "Property name to update" },
+          "--value": { "type": "string", "description": "New property value" }
+        },
+        "required": ["page-id", "--property", "--value"]
+      },
+      "output_format": "json",
+      "destructive": true,
+      "idempotent": true,
+      "requires_confirmation": true,
+      "confirmation_message": "Update property '{--property}' to '{--value}'?",
+      "capability": "update",
+      "examples": [
+        {
+          "intent": "Update a page property",
+          "command": "notion page update page-abc-123 --property \"Status\" --value \"Done\"",
+          "output_format": "json",
+          "example_output": {
+            "id": "page-abc-123",
+            "properties": {
+              "Status": "Done"
+            }
+          },
+          "exit_code": 0,
+          "notes": "Only the updated property is returned in the response"
+        }
+      ]
+    }
+  ]
+}

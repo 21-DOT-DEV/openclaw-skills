@@ -142,16 +142,17 @@ Every `SKILL.md` must begin with YAML frontmatter between `---` delimiters.
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | string | Human-readable skill name |
+| `description` | string | Use-case-focused trigger description |
+
+### Optional fields (warning if missing)
+
+| Field | Type | Description |
+|-------|------|-------------|
 | `slug` | string | URL/directory-safe identifier |
 | `type` | string | `swift_cli` or `external_cli` |
 | `requires_binaries` | list | CLI commands expected on PATH |
 | `supported_os` | list | `macos`, `linux`, and/or `windows` |
 | `verify` | list | Non-destructive commands to confirm installation |
-
-### Optional fields
-
-| Field | Type | Description |
-|-------|------|-------------|
 | `install` | map | Per-OS installation instructions (keyed by OS) |
 | `security_notes` | string or list | Credential handling and risk notes |
 | `capabilities` | list of objects | Grouped capability declarations (see below) |
@@ -161,7 +162,7 @@ Every `SKILL.md` must begin with YAML frontmatter between `---` delimiters.
 | `output_format` | string | `json`, `line_based`, `table`, or `freeform` |
 | `output_parsing` | map | Parsing hints (e.g. `success_json_path`, `error_stream`) |
 
-Additional fields (e.g. `description`, `version`, `author`, `tags`) are allowed and ignored by the linter.
+Additional fields (e.g. `version`, `author`, `tags`) are allowed and ignored by the linter.
 
 ### Capability objects
 
@@ -174,30 +175,36 @@ Each entry in `capabilities` has:
 | `destructive` | Yes | bool | Whether it modifies state |
 | `requires_confirmation` | No | bool | Agent should confirm with user (default: false) |
 
-## Structured Examples
+## Command Schemas
 
-Each skill can include a `references/examples.json` file containing machine-readable command/response examples. The linter validates this file if present.
+Each skill should include a `references/commands.json` file defining structured command definitions. The linter validates this file if present.
 
-Each entry must have: `intent` (string), `command` (string), `output_format` (string), `example_output` (object or string), `exit_code` (int). Optional: `notes`, `destructive`.
+Top-level keys: `skill` (string), `commands` (array of command objects).
+
+Each command must have: `name`, `binary`, `description`, `output_format`, `examples` (array). Optional: `parameters` (JSON Schema), `exit_codes` (map), `destructive`, `idempotent`, `requires_confirmation`, `confirmation_message`, `rate_limit`, `retry`, `syntax`, `capability`.
+
+Each example must have: `intent`, `command`, `output_format`, `example_output`, `exit_code`. Optional: `notes`.
+
+The legacy `references/examples.json` format is still supported but deprecated. If both files exist, the linter warns and validates only `commands.json`.
 
 ## Adding a New Skill
 
 ### Add a Swift-backed skill
 
-1. Create `skills/<skill-name>/SKILL.md` with YAML frontmatter (set `type: swift_cli`)
+1. Create `skills/<skill-name>/SKILL.md` with YAML frontmatter (`name` and `description` required)
 2. Create a SwiftPM package in `packages/<package-name>/`
 3. Add the mapping to the `Makefile` (`SKILL_<name>` variable and add to `SKILLS`/`PACKAGES` lists)
 4. Run `make build SKILL=<skill-name>` to verify
 5. Run `make lint-skills` to validate frontmatter
-6. Optionally add `references/examples.json` with structured examples
+6. Add `references/commands.json` with structured command definitions
 
 ### Add an external CLI skill
 
-1. Create `skills/<skill-name>/SKILL.md` with YAML frontmatter (set `type: external_cli`)
-2. Include installation instructions, verify commands, usage examples, and security notes in the body
-3. Add `references/examples.json` with structured command/response examples
+1. Create `skills/<skill-name>/SKILL.md` with YAML frontmatter (`name` and `description` required)
+2. Include installation instructions, usage examples, and security notes in the body
+3. Add `references/commands.json` with structured command definitions
 4. Optionally add a `references/` directory for supplementary docs
-5. Run `make lint-skills` to validate frontmatter and examples
+5. Run `make lint-skills` to validate frontmatter and commands
 6. No Makefile changes needed — the skill is automatically discovered
 
 ## License

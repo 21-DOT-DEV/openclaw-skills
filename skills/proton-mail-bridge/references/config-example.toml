@@ -1,0 +1,33 @@
+# Himalaya configuration for Proton Mail Bridge
+#
+# Copy to: ~/.config/himalaya/config.toml
+# Docs:    https://pimalaya.org/himalaya/cli/latest/configuration/
+#
+# IMPORTANT:
+#   - encryption.type = "none" because Bridge handles encryption locally
+#     on 127.0.0.1. Do NOT use "start-tls" — rustls rejects Bridge's
+#     self-signed certificate even with danger-accept-invalid-certs.
+#   - Password is sourced from the PROTON_BRIDGE_PASS environment
+#     variable. Never hardcode it. Export it before running himalaya:
+#       export PROTON_BRIDGE_PASS="your-bridge-password-here"
+#   - Get the Bridge password from Bridge GUI → Settings → Account →
+#     "IMAP/SMTP password" (this is NOT your Proton account password).
+
+[accounts.proton]
+default = true
+email = "user@proton.me"
+display-name = "Your Name"
+
+backend.type = "imap"
+backend.host = "127.0.0.1"
+backend.port = 1143
+backend.encryption.type = "none"
+backend.auth.type = "password"
+backend.auth.raw = "$PROTON_BRIDGE_PASS"
+
+message.send.backend.type = "smtp"
+message.send.backend.host = "127.0.0.1"
+message.send.backend.port = 1025
+message.send.backend.encryption.type = "none"
+message.send.backend.auth.type = "password"
+message.send.backend.auth.raw = "$PROTON_BRIDGE_PASS"
