@@ -3,6 +3,14 @@
 This document defines the complete agent lifecycle for working with Notion tasks
 via the `ntask` CLI.
 
+## Before You Start
+
+Before entering the work loop, run through the triage checklist in
+[task-triage.md](task-triage.md). The triage ensures you're working on
+the right task, with clear criteria, and appropriate scope.
+
+Flow: **triage (think) → workflow (execute)**
+
 ## Lifecycle State Machine
 
 ```
@@ -73,7 +81,7 @@ ntask next
 ntask claim <task-id> --run-id <run-id> --agent-name <name> --lease-min 20
 ```
 
-- **Success:** save the `lock_token` and `locked_until` from the response.
+- **Success:** save the `lock_token` and `lock_expires` from the response.
 - **CONFLICT (exit 2):** immediately re-run `next` for a different task. Do not retry the same task.
 - **API_ERROR (exit 5):** Retry the same claim up to 3× with 2s/4s/8s backoff
   (you don't yet hold a lock, so retrying is safe). If all retries fail, fall
@@ -81,7 +89,7 @@ ntask claim <task-id> --run-id <run-id> --agent-name <name> --lease-min 20
 
 ### 4. Work Loop
 
-Perform the work described in the task's `acceptance_criteria`.
+Perform the work described in the task's sub-tasks.
 
 **During work, heartbeat on a fixed cadence:**
 
@@ -91,7 +99,7 @@ ntask heartbeat <task-id> --run-id <run-id> --lock-token <token> --lease-min 20
 
 **Heartbeat cadence:** every `lease_min / 2` minutes (default: every 10 minutes).
 
-- **Success:** continue working. Note the updated `locked_until`.
+- **Success:** continue working. Note the updated `lock_expires`.
 - **LOST_LOCK (exit 4):** **stop work immediately**. Run `next` to get a new task.
 - **API_ERROR (exit 5):** follow the API error retry policy. If all retries fail, stop work and run `next`.
 
@@ -140,11 +148,15 @@ After 3 failed retries:
 - If holding a task lock: `block` the task with reason "Repeated API failures after 3 retries"
 - If not holding a lock (e.g., during `next`): surface the error to the user
 
+**Rate limits:** The Notion API enforces 3 requests/second. HTTP 429 (Too Many
+Requests) is a common cause of API_ERROR. The backoff schedule above handles
+this automatically.
+
 ## Idempotency
 
 If a task triggers external side effects (deployments, API calls, emails), the
 agent **should** record an idempotency key in the task's Artifacts or Notes field
-before performing the action. Use the `AgentRunID` as the key. This prevents
+before performing the action. Use the `Agent Run` value as the key. This prevents
 duplicate side effects if the agent retries or another agent picks up the same
 task.
 
@@ -163,18 +175,18 @@ When a task is too complex for a single work session, decompose it into subtasks
 ntask get PROJ-42
 
 # 2. Create subtasks with --parent
-ntask create --task-id "PROJ-42a" --title "Design auth schema" \
-  --parent "PROJ-42" --priority 8 --acceptance-criteria "Schema reviewed"
+ntask create --title "Design auth schema" \
+  --parent "TASK-42" --priority 8
 
-ntask create --task-id "PROJ-42b" --title "Implement auth endpoints" \
-  --parent "PROJ-42" --priority 7 --acceptance-criteria "All tests pass"
+ntask create --title "Implement auth endpoints" \
+  --parent "TASK-42" --priority 7
 
 # 3. Work subtasks via the normal claim→work→complete loop
-# 4. Parent's DependenciesOpenCount tracks completion
+# 4. Parent's Dependencies rollup tracks completion
 ```
 
 **When to decompose:**
-- Task acceptance criteria contains multiple independent deliverables
+- Task contains multiple independent deliverables
 - Estimated work exceeds a single agent session
 - Task requires sequential phases (design → implement → test)
 
@@ -194,4 +206,4 @@ ntask create --task-id "PROJ-42b" --title "Implement auth endpoints" \
 5. **Always include reason + unblock_action on block.** This tells humans what to fix.
 6. **Always include reason on cancel.** Explains why work was abandoned.
 7. **Decompose complex tasks.** Use `create --parent` to break work into subtasks.
-8. **Record idempotency keys for side effects.** Write `AgentRunID` to Artifacts/Notes before triggering external actions.
+8. **Record idempotency keys for side effects.** Write `Agent Run` value to Artifacts/Notes before triggering external actions.

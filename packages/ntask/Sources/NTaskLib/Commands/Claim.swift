@@ -43,7 +43,7 @@ struct Claim: AsyncParsableCommand {
             case .success:
                 var summary = verified.toSummary()
                 summary["lock_token"] = lockToken
-                summary["locked_until"] = lockedUntil
+                summary["lock_expires"] = lockedUntil
                 JSONOut.success(["task": summary])
             case .conflict:
                 JSONOut.error(

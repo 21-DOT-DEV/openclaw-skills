@@ -30,13 +30,12 @@ struct ContractTests {
             taskId: "PROJ-42",
             status: "READY",
             priority: 8,
-            classOfService: "STANDARD",
-            acceptanceCriteria: "Do the thing",
+            taskClass: "STANDARD",
             claimedBy: nil,
-            agentRunId: nil,
-            agentName: nil,
+            agentRun: nil,
+            agent: nil,
             lockToken: nil,
-            lockedUntil: nil,
+            lockExpires: nil,
             doneAt: nil,
             blockerReason: nil,
             unblockAction: nil,
@@ -85,13 +84,12 @@ struct ContractTests {
             taskId: "PROJ-42",
             status: "IN_PROGRESS",
             priority: nil,
-            classOfService: nil,
-            acceptanceCriteria: nil,
+            taskClass: nil,
             claimedBy: "AGENT",
-            agentRunId: "run-other",
-            agentName: nil,
+            agentRun: "run-other",
+            agent: nil,
             lockToken: nil,
-            lockedUntil: nil,
+            lockExpires: nil,
             doneAt: nil,
             blockerReason: nil,
             unblockAction: nil,
@@ -119,13 +117,12 @@ struct ContractTests {
             taskId: "T-1",
             status: "DONE",
             priority: 5,
-            classOfService: "EXPEDITE",
-            acceptanceCriteria: "AC",
+            taskClass: "EXPEDITE",
             claimedBy: "AGENT",
-            agentRunId: "run-1",
-            agentName: "agent-1",
+            agentRun: "run-1",
+            agent: "agent-1",
             lockToken: "tok-1",
-            lockedUntil: "2025-01-01T00:00:00Z",
+            lockExpires: "2025-01-01T00:00:00Z",
             doneAt: "2025-01-02T00:00:00Z",
             blockerReason: nil,
             unblockAction: nil,
@@ -136,23 +133,29 @@ struct ContractTests {
         let data = try encoder.encode(task)
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
 
-        // Verify all snake_case keys exist
+        // Verify all keys use new names
         #expect(json["page_id"] as? String == "p1")
         #expect(json["task_id"] as? String == "T-1")
-        #expect(json["class_of_service"] as? String == "EXPEDITE")
-        #expect(json["acceptance_criteria"] as? String == "AC")
+        #expect(json["class"] as? String == "EXPEDITE")
         #expect(json["claimed_by"] as? String == "AGENT")
-        #expect(json["agent_run_id"] as? String == "run-1")
-        #expect(json["agent_name"] as? String == "agent-1")
+        #expect(json["agent_run"] as? String == "run-1")
+        #expect(json["agent"] as? String == "agent-1")
         #expect(json["lock_token"] as? String == "tok-1")
-        #expect(json["locked_until"] as? String == "2025-01-01T00:00:00Z")
+        #expect(json["lock_expires"] as? String == "2025-01-01T00:00:00Z")
         #expect(json["done_at"] as? String == "2025-01-02T00:00:00Z")
         #expect(json["parent_task_id"] as? String == "PROJ-00")
+
+        // Verify old keys are NOT present
+        #expect(json["class_of_service"] == nil)
+        #expect(json["acceptance_criteria"] == nil)
+        #expect(json["agent_run_id"] == nil)
+        #expect(json["agent_name"] == nil)
+        #expect(json["locked_until"] == nil)
 
         // Verify NO camelCase keys leak through
         #expect(json["pageId"] == nil)
         #expect(json["taskId"] == nil)
-        #expect(json["classOfService"] == nil)
+        #expect(json["taskClass"] == nil)
         #expect(json["parentTaskId"] == nil)
     }
 
@@ -162,14 +165,16 @@ struct ContractTests {
     func doctorChecksFieldNames() throws {
         let checks = DoctorChecks(
             notionCli: NotionCliCheck(found: true, version: "0.6.0"),
-            envNotionToken: true,
+            notionToken: NotionTokenCheck(available: true, source: "environment"),
             envNotionTasksDbId: true,
             dbAccessible: true
         )
         let data = try encoder.encode(checks)
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         #expect(json["notion_cli"] != nil)
-        #expect(json["env_NOTION_TOKEN"] as? Bool == true)
+        let tokenObj = json["notion_token"] as? [String: Any]
+        #expect(tokenObj?["available"] as? Bool == true)
+        #expect(tokenObj?["source"] as? String == "environment")
         #expect(json["env_NOTION_TASKS_DB_ID"] as? Bool == true)
         #expect(json["db_accessible"] as? Bool == true)
     }
@@ -178,7 +183,7 @@ struct ContractTests {
     func doctorChecksRoundTrip() throws {
         let checks = DoctorChecks(
             notionCli: NotionCliCheck(found: false, version: nil),
-            envNotionToken: false,
+            notionToken: NotionTokenCheck(available: false, source: nil),
             envNotionTasksDbId: true,
             dbAccessible: nil
         )
@@ -186,9 +191,40 @@ struct ContractTests {
         let decoded = try decoder.decode(DoctorChecks.self, from: data)
         #expect(decoded.notionCli?.found == false)
         #expect(decoded.notionCli?.version == nil)
-        #expect(decoded.envNotionToken == false)
+        #expect(decoded.notionToken?.available == false)
+        #expect(decoded.notionToken?.source == nil)
         #expect(decoded.envNotionTasksDbId == true)
         #expect(decoded.dbAccessible == nil)
+    }
+
+    @Test("DoctorChecks encodes keychain auth source")
+    func doctorChecksKeychainSource() throws {
+        let checks = DoctorChecks(
+            notionCli: NotionCliCheck(found: true, version: "0.6.0"),
+            notionToken: NotionTokenCheck(available: true, source: "system keyring"),
+            envNotionTasksDbId: true,
+            dbAccessible: true
+        )
+        let data = try encoder.encode(checks)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let tokenObj = json["notion_token"] as? [String: Any]
+        #expect(tokenObj?["available"] as? Bool == true)
+        #expect(tokenObj?["source"] as? String == "system keyring")
+    }
+
+    @Test("DoctorChecks encodes no-auth state")
+    func doctorChecksNoAuth() throws {
+        let checks = DoctorChecks(
+            notionCli: NotionCliCheck(found: true, version: "0.6.0"),
+            notionToken: NotionTokenCheck(available: false, source: nil),
+            envNotionTasksDbId: false,
+            dbAccessible: nil
+        )
+        let data = try encoder.encode(checks)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let tokenObj = json["notion_token"] as? [String: Any]
+        #expect(tokenObj?["available"] as? Bool == false)
+        #expect(tokenObj?["source"] is NSNull || tokenObj?["source"] == nil)
     }
 
     // MARK: - Version Info Contract
@@ -229,17 +265,17 @@ struct ContractTests {
         let tasks = [
             TaskSummary(
                 pageId: "p1", taskId: "T-1", status: "READY", priority: 5,
-                classOfService: "STANDARD", acceptanceCriteria: nil,
-                claimedBy: nil, agentRunId: nil, agentName: nil,
-                lockToken: nil, lockedUntil: nil, doneAt: nil,
+                taskClass: "STANDARD",
+                claimedBy: nil, agentRun: nil, agent: nil,
+                lockToken: nil, lockExpires: nil, doneAt: nil,
                 blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
                 parentTaskId: nil, reason: nil
             ),
             TaskSummary(
                 pageId: "p2", taskId: "T-2", status: "IN_PROGRESS", priority: 8,
-                classOfService: "EXPEDITE", acceptanceCriteria: nil,
-                claimedBy: "AGENT", agentRunId: "run-1", agentName: nil,
-                lockToken: nil, lockedUntil: nil, doneAt: nil,
+                taskClass: "EXPEDITE",
+                claimedBy: "AGENT", agentRun: "run-1", agent: nil,
+                lockToken: nil, lockExpires: nil, doneAt: nil,
                 blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
                 parentTaskId: nil, reason: nil
             )
@@ -319,9 +355,9 @@ struct ContractTests {
     func taskSummaryNewFields() throws {
         let task = TaskSummary(
             pageId: "p1", taskId: "T-1a", status: "CANCELED", priority: nil,
-            classOfService: nil, acceptanceCriteria: nil,
-            claimedBy: nil, agentRunId: nil, agentName: nil,
-            lockToken: nil, lockedUntil: nil, doneAt: nil,
+            taskClass: nil,
+            claimedBy: nil, agentRun: nil, agent: nil,
+            lockToken: nil, lockExpires: nil, doneAt: nil,
             blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
             parentTaskId: "T-1", reason: "No longer needed"
         )

@@ -13,19 +13,11 @@ enum PullPolicy {
         }
         if let claimedBy = page.claimedBy, !claimedBy.isEmpty {
             // Has a claim — check if lock expired.
-            // If LockedUntil is nil (inconsistent state from a failed mid-update),
+            // If Lock Expires is nil (inconsistent state from a failed mid-update),
             // fall through and treat as claimable.
-            if let lockedUntil = page.lockedUntil, !Time.isExpired(lockedUntil) {
+            if let lockExpires = page.lockExpires, !Time.isExpired(lockExpires) {
                 return false // Lock still active
             }
-        }
-
-        // 3. AcceptanceCriteria must be present
-        guard let ac = page.acceptanceCriteria, !ac.isEmpty else { return false }
-
-        // 4. DependenciesOpenCount must be 0
-        if let deps = page.dependenciesOpenCount, deps != 0 {
-            return false
         }
 
         return true

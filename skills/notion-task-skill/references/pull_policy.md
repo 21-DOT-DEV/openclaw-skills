@@ -11,15 +11,15 @@ must make the same selection.
 A task is eligible for selection when **all** of the following are true:
 
 1. **Status** equals `READY`
-2. **ClaimedBy** is NOT `HUMAN` (human-claimed tasks are never auto-pulled,
-   regardless of `LockedUntil`)
+2. **Claimed By** is NOT `HUMAN` (human-claimed tasks are never auto-pulled,
+   regardless of `Lock Expires`)
 3. **Lock is empty or expired:**
-   - `ClaimedBy` is empty, **OR**
-   - `LockedUntil` is empty or in the past (lock expired or inconsistent state)
-4. **AcceptanceCriteria** is present and non-empty
-5. **DependenciesOpenCount** equals `0`
+   - `Claimed By` is empty, **OR**
+   - `Lock Expires` is empty or in the past (lock expired or inconsistent state)
+That's it — no sub-task or dependency checks at claim time. Sub-task completion
+is enforced at `done` time via the Dependencies rollup.
 
-**Edge case — inconsistent state:** If `ClaimedBy` is `AGENT` but `LockedUntil` is
+**Edge case — inconsistent state:** If `Claimed By` is `AGENT` but `Lock Expires` is
 empty, the task is treated as claimable (expired lock). This can happen if a
 previous operation failed mid-update. The claiming agent should note this in the
 task's comments for auditability.
@@ -28,9 +28,9 @@ task's comments for auditability.
 
 Eligible tasks are sorted by the following keys, in order:
 
-1. **ClassOfService rank** (ascending — lower rank = higher priority):
+1. **Class rank** (ascending — lower rank = higher priority):
    - EXPEDITE (1) > FIXED_DATE (2) > STANDARD (3) > INTANGIBLE (4)
-   - Tasks missing ClassOfService are treated as STANDARD (rank 3)
+   - Tasks missing Class are treated as STANDARD (rank 3)
 2. **Priority** (descending — higher number = more urgent)
 3. **Last edited time** (ascending — oldest-edited first, to prevent starvation)
 
@@ -40,46 +40,46 @@ The **first** task after sorting is returned by `ntask next`.
 
 ### Claiming a Task (claim)
 
-1. Generate a UUID v4 `LockToken`.
+1. Generate a UUID v4 `Lock Token`.
 2. Set the following properties atomically:
    - `Status` → `IN_PROGRESS`
-   - `ClaimedBy` → `AGENT`
-   - `AgentRunID` → provided run ID
-   - `AgentName` → provided agent name
-   - `LockToken` → generated token
-   - `LockedUntil` → now + lease duration (default 20 minutes)
+   - `Claimed By` → `AGENT`
+   - `Agent Run` → provided run ID
+   - `Agent` → provided agent name
+   - `Lock Token` → generated token
+   - `Lock Expires` → now + lease duration (default 20 minutes)
    - `StartedAt` → now (if property exists)
 3. **Verify the claim** by re-reading the page immediately after update.
-4. If the re-read shows a **different** `LockToken`, return `CONFLICT`.
+4. If the re-read shows a **different** `Lock Token`, return `CONFLICT`.
    Another agent claimed the task first.
 
 ### Heartbeat (heartbeat)
 
-1. Read the page and verify `LockToken` matches the provided token.
+1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. If token matches, update:
-   - `LockedUntil` → now + lease duration (default 20 minutes)
+   - `Lock Expires` → now + lease duration (default 20 minutes)
 4. Return success with the new expiry time.
 
 ### Complete (complete)
 
-1. Read the page and verify `LockToken` matches the provided token.
+1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
    - `Status` → `DONE`
    - `Artifacts` → provided artifacts string
    - `DoneAt` → now (if property exists)
    - Clear lock fields (set to null/empty):
-     - `ClaimedBy` → null (clear the Select)
-     - `AgentRunID` → `""` (empty string)
-     - `AgentName` → `""` (empty string)
-     - `LockToken` → `""` (empty string)
-     - `LockedUntil` → null (clear the Date)
+     - `Claimed By` → null (clear the Select)
+     - `Agent Run` → `""` (empty string)
+     - `Agent` → `""` (empty string)
+     - `Lock Token` → `""` (empty string)
+     - `Lock Expires` → null (clear the Date)
 4. Return success.
 
 ### Block (block)
 
-1. Read the page and verify `LockToken` matches the provided token.
+1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
    - `Status` → `BLOCKED`
@@ -87,41 +87,41 @@ The **first** task after sorting is returned by `ntask next`.
    - `UnblockAction` → provided unblock action
    - `NextCheckAt` → provided ISO 8601 timestamp (optional)
    - Clear lock fields (set to null/empty):
-     - `ClaimedBy` → null (clear the Select)
-     - `AgentRunID` → `""` (empty string)
-     - `AgentName` → `""` (empty string)
-     - `LockToken` → `""` (empty string)
-     - `LockedUntil` → null (clear the Date)
+     - `Claimed By` → null (clear the Select)
+     - `Agent Run` → `""` (empty string)
+     - `Agent` → `""` (empty string)
+     - `Lock Token` → `""` (empty string)
+     - `Lock Expires` → null (clear the Date)
 4. Return success.
 
 ### Review (review)
 
-1. Read the page and verify `LockToken` matches the provided token.
+1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
    - `Status` → `REVIEW`
    - `Artifacts` → provided artifacts string (optional)
    - Clear lock fields (set to null/empty):
-     - `ClaimedBy` → null (clear the Select)
-     - `AgentRunID` → `""` (empty string)
-     - `AgentName` → `""` (empty string)
-     - `LockToken` → `""` (empty string)
-     - `LockedUntil` → null (clear the Date)
+     - `Claimed By` → null (clear the Select)
+     - `Agent Run` → `""` (empty string)
+     - `Agent` → `""` (empty string)
+     - `Lock Token` → `""` (empty string)
+     - `Lock Expires` → null (clear the Date)
 4. Return success.
 
 ### Cancel (cancel)
 
-1. Read the page and verify `LockToken` matches the provided token.
+1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
    - `Status` → `CANCELED`
    - `BlockerReason` → provided reason
    - Clear lock fields (set to null/empty):
-     - `ClaimedBy` → null (clear the Select)
-     - `AgentRunID` → `""` (empty string)
-     - `AgentName` → `""` (empty string)
-     - `LockToken` → `""` (empty string)
-     - `LockedUntil` → null (clear the Date)
+     - `Claimed By` → null (clear the Select)
+     - `Agent Run` → `""` (empty string)
+     - `Agent` → `""` (empty string)
+     - `Lock Token` → `""` (empty string)
+     - `Lock Expires` → null (clear the Date)
 4. Return success.
 
 ## Error Codes

@@ -33,6 +33,16 @@ struct Complete: AsyncParsableCommand {
                 )
             }
 
+            // Check sub-tasks: block completion if any are incomplete
+            if let depsCount = page.dependenciesOpenCount, depsCount > 0 {
+                JSONOut.error(
+                    code: "INCOMPLETE_SUBTASKS",
+                    message: "Cannot complete: \(depsCount) sub-tasks still open",
+                    task: page.toSummary(),
+                    exitCode: ExitCodes.misconfigured
+                )
+            }
+
             let doneAt = Time.iso8601(Time.now())
             try await NotionCLI.updateForComplete(
                 pageId: page.pageId,

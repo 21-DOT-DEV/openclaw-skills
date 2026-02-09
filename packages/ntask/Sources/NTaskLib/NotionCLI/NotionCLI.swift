@@ -26,20 +26,33 @@ enum NotionCLI {
         }
     }
 
-    static var token: String {
-        get throws {
-            guard let t = ProcessInfo.processInfo.environment["NOTION_TOKEN"], !t.isEmpty else {
-                throw NTaskError.misconfigured("NOTION_TOKEN environment variable is not set")
-            }
-            return t
-        }
-    }
-
     private static var notionEnv: [String: String] {
         ["NOTION_OUTPUT": "json"]
     }
 
     // MARK: - Doctor
+
+    /// Check if notion-cli has a valid auth session (keychain or config).
+    /// Runs `notion auth status -o json` and parses the result.
+    /// Returns the token source string (e.g. "system keyring") or nil.
+    static func checkAuthStatus() async -> String? {
+        do {
+            let result = try await ProcessRunner.run(
+                executable: "notion",
+                arguments: ["auth", "status", "-o", "json"],
+                environment: notionEnv
+            )
+            guard result.exitCode == 0,
+                  let data = result.stdout.data(using: .utf8),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  json["authenticated"] as? Bool == true else {
+                return nil
+            }
+            return json["token_source"] as? String ?? "unknown"
+        } catch {
+            return nil
+        }
+    }
 
     static func checkVersion() async throws -> String {
         let found = await ProcessRunner.findExecutable("notion")
@@ -92,11 +105,16 @@ enum NotionCLI {
     }
 
     /// Resolve a TaskID to its Notion page by querying the database.
+    /// Accepts "TASK-42" or "42" format — extracts the number for unique_id filter.
     static func resolveTaskIdToPage(_ taskId: String) async throws -> NotionPage {
+        let numberStr = taskId.split(separator: "-").last.flatMap(String.init) ?? taskId
+        guard let number = Int(numberStr) else {
+            throw NTaskError.misconfigured("Invalid task ID format '\(taskId)'. Expected TASK-42 or 42.")
+        }
         let dbId = try databaseId
         let filter = try buildFilterJSON([
-            "property": "TaskID",
-            "rich_text": ["equals": taskId]
+            "property": "ID",
+            "unique_id": ["equals": number]
         ])
         let result = try await ProcessRunner.run(
             executable: "notion",
@@ -108,7 +126,7 @@ enum NotionCLI {
         }
         let pages = parsePages(from: result.stdout)
         guard let page = pages.first else {
-            throw NTaskError.misconfigured("No task found with TaskID '\(taskId)'")
+            throw NTaskError.misconfigured("No task found with ID '\(taskId)'")
         }
         return page
     }
@@ -125,8 +143,8 @@ enum NotionCLI {
         guard result.exitCode == 0 else {
             throw NTaskError.apiError("Failed to retrieve page '\(pageId)': \(redactStderr(result.stderr))")
         }
-        guard let json = parseJSON(result.stdout) as? [String: Any],
-              let page = NotionPage.from(json: json) else {
+        guard let data = result.stdout.data(using: .utf8),
+              let page = try? JSONDecoder().decode(NotionPage.self, from: data) else {
             throw NTaskError.apiError("Failed to parse page response")
         }
         return page
@@ -155,7 +173,7 @@ enum NotionCLI {
         lockedUntil: String
     ) async throws {
         let properties: [String: Any] = [
-            "LockedUntil": ["date": ["start": lockedUntil]]
+            "Lock Expires": ["date": ["start": lockedUntil]]
         ]
         try await updatePage(pageId: pageId, properties: properties)
     }
@@ -170,11 +188,11 @@ enum NotionCLI {
             "Status": ["select": ["name": "DONE"]],
             "Artifacts": ["rich_text": [["text": ["content": artifacts]]]],
             "DoneAt": ["date": ["start": doneAt]],
-            "ClaimedBy": ["select": NSNull()],
-            "AgentRunID": ["rich_text": []],
-            "AgentName": ["rich_text": []],
-            "LockToken": ["rich_text": []],
-            "LockedUntil": ["date": NSNull()]
+            "Claimed By": ["select": NSNull()],
+            "Agent Run": ["rich_text": []],
+            "Agent": ["select": NSNull()],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
         ]
         try await updatePage(pageId: pageId, properties: properties)
     }
@@ -190,11 +208,11 @@ enum NotionCLI {
             "Status": ["select": ["name": "BLOCKED"]],
             "BlockerReason": ["rich_text": [["text": ["content": reason]]]],
             "UnblockAction": ["rich_text": [["text": ["content": unblockAction]]]],
-            "ClaimedBy": ["select": NSNull()],
-            "AgentRunID": ["rich_text": []],
-            "AgentName": ["rich_text": []],
-            "LockToken": ["rich_text": []],
-            "LockedUntil": ["date": NSNull()]
+            "Claimed By": ["select": NSNull()],
+            "Agent Run": ["rich_text": []],
+            "Agent": ["select": NSNull()],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
         ]
         if let nextCheck {
             properties["NextCheckAt"] = ["date": ["start": nextCheck]]
@@ -219,8 +237,8 @@ enum NotionCLI {
         guard result.exitCode == 0 else {
             throw NTaskError.apiError("Failed to create page: \(redactStderr(result.stderr))")
         }
-        guard let json = parseJSON(result.stdout) as? [String: Any],
-              let page = NotionPage.from(json: json) else {
+        guard let data = result.stdout.data(using: .utf8),
+              let page = try? JSONDecoder().decode(NotionPage.self, from: data) else {
             throw NTaskError.apiError("Failed to parse created page response")
         }
         return page
@@ -276,11 +294,11 @@ enum NotionCLI {
     ) async throws {
         var properties: [String: Any] = [
             "Status": ["select": ["name": "REVIEW"]],
-            "ClaimedBy": ["select": NSNull()],
-            "AgentRunID": ["rich_text": []],
-            "AgentName": ["rich_text": []],
-            "LockToken": ["rich_text": []],
-            "LockedUntil": ["date": NSNull()]
+            "Claimed By": ["select": NSNull()],
+            "Agent Run": ["rich_text": []],
+            "Agent": ["select": NSNull()],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
         ]
         if let artifacts {
             properties["Artifacts"] = ["rich_text": [["text": ["content": artifacts]]]]
@@ -296,11 +314,11 @@ enum NotionCLI {
         let properties: [String: Any] = [
             "Status": ["select": ["name": "CANCELED"]],
             "BlockerReason": ["rich_text": [["text": ["content": reason]]]],
-            "ClaimedBy": ["select": NSNull()],
-            "AgentRunID": ["rich_text": []],
-            "AgentName": ["rich_text": []],
-            "LockToken": ["rich_text": []],
-            "LockedUntil": ["date": NSNull()]
+            "Claimed By": ["select": NSNull()],
+            "Agent Run": ["rich_text": []],
+            "Agent": ["select": NSNull()],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
         ]
         try await updatePage(pageId: pageId, properties: properties)
     }
@@ -320,11 +338,11 @@ enum NotionCLI {
     ) -> [String: Any] {
         [
             "Status": ["select": ["name": "IN_PROGRESS"]],
-            "ClaimedBy": ["select": ["name": "AGENT"]],
-            "AgentRunID": ["rich_text": [["text": ["content": runId]]]],
-            "AgentName": ["rich_text": [["text": ["content": agentName]]]],
-            "LockToken": ["rich_text": [["text": ["content": lockToken]]]],
-            "LockedUntil": ["date": ["start": lockedUntil]],
+            "Claimed By": ["select": ["name": "AGENT"]],
+            "Agent Run": ["rich_text": [["text": ["content": runId]]]],
+            "Agent": ["select": ["name": agentName]],
+            "Lock Token": ["rich_text": [["text": ["content": lockToken]]]],
+            "Lock Expires": ["date": ["start": lockedUntil]],
             "StartedAt": ["date": ["start": Time.iso8601(Time.now())]]
         ]
     }
@@ -366,23 +384,24 @@ enum NotionCLI {
     }
 
     private static func parsePages(from jsonString: String) -> [NotionPage] {
-        guard let parsed = parseJSON(jsonString) else { return [] }
-        if let array = parsed as? [[String: Any]] {
-            return array.compactMap { NotionPage.from(json: $0) }
+        guard let data = jsonString.data(using: .utf8) else { return [] }
+        let decoder = JSONDecoder()
+        // Try direct array of pages
+        if let pages = try? decoder.decode([NotionPage].self, from: data) {
+            return pages
         }
-        if let dict = parsed as? [String: Any],
-           let results = dict["results"] as? [[String: Any]] {
-            return results.compactMap { NotionPage.from(json: $0) }
+        // Try wrapped response with "results" key
+        if let wrapped = try? decoder.decode(NotionQueryResponse.self, from: data) {
+            return wrapped.results
         }
-        if let dict = parsed as? [String: Any],
-           let page = NotionPage.from(json: dict) {
+        // Try single page
+        if let page = try? decoder.decode(NotionPage.self, from: data) {
             return [page]
         }
         return []
     }
+}
 
-    private static func parseJSON(_ string: String) -> Any? {
-        guard let data = string.data(using: .utf8) else { return nil }
-        return try? JSONSerialization.jsonObject(with: data)
-    }
+private struct NotionQueryResponse: Decodable {
+    let results: [NotionPage]
 }

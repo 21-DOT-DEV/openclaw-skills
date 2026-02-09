@@ -44,13 +44,12 @@ struct TaskSummary: Codable, Equatable {
     let taskId: String?
     let status: String?
     let priority: Int?
-    let classOfService: String?
-    let acceptanceCriteria: String?
+    let taskClass: String?
     let claimedBy: String?
-    let agentRunId: String?
-    let agentName: String?
+    let agentRun: String?
+    let agent: String?
     let lockToken: String?
-    let lockedUntil: String?
+    let lockExpires: String?
     let doneAt: String?
     let blockerReason: String?
     let unblockAction: String?
@@ -63,13 +62,12 @@ struct TaskSummary: Codable, Equatable {
         case taskId = "task_id"
         case status
         case priority
-        case classOfService = "class_of_service"
-        case acceptanceCriteria = "acceptance_criteria"
+        case taskClass = "class"
         case claimedBy = "claimed_by"
-        case agentRunId = "agent_run_id"
-        case agentName = "agent_name"
+        case agentRun = "agent_run"
+        case agent
         case lockToken = "lock_token"
-        case lockedUntil = "locked_until"
+        case lockExpires = "lock_expires"
         case doneAt = "done_at"
         case blockerReason = "blocker_reason"
         case unblockAction = "unblock_action"
@@ -81,15 +79,20 @@ struct TaskSummary: Codable, Equatable {
 
 // MARK: - Doctor Checks
 
+struct NotionTokenCheck: Codable, Equatable {
+    let available: Bool
+    let source: String?
+}
+
 struct DoctorChecks: Codable {
     let notionCli: NotionCliCheck?
-    let envNotionToken: Bool?
+    let notionToken: NotionTokenCheck?
     let envNotionTasksDbId: Bool?
     let dbAccessible: Bool?
 
     enum CodingKeys: String, CodingKey {
         case notionCli = "notion_cli"
-        case envNotionToken = "env_NOTION_TOKEN"
+        case notionToken = "notion_token"
         case envNotionTasksDbId = "env_NOTION_TASKS_DB_ID"
         case dbAccessible = "db_accessible"
     }

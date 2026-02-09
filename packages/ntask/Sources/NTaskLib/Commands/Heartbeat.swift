@@ -43,7 +43,7 @@ struct Heartbeat: AsyncParsableCommand {
                 "task": [
                     "page_id": page.pageId,
                     "task_id": taskId,
-                    "locked_until": newExpiry
+                    "lock_expires": newExpiry
                 ]
             ])
         } catch let error as NTaskError {

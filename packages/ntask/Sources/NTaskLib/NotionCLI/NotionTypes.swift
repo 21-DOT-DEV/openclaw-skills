@@ -1,63 +1,164 @@
 import Foundation
 
-struct NotionPage {
+// MARK: - Notion Property Value Types
+
+struct NotionSelect: Decodable {
+    let name: String
+}
+
+struct NotionUniqueId: Decodable {
+    let prefix: String?
+    let number: Int
+}
+
+struct NotionDate: Decodable {
+    let start: String?
+}
+
+struct NotionRollup: Decodable {
+    let number: Double?
+}
+
+struct RichTextItem: Decodable {
+    let plainText: String
+
+    enum CodingKeys: String, CodingKey {
+        case plainText = "plain_text"
+    }
+}
+
+// MARK: - Tagged Union for Notion Property Values
+
+enum NotionPropertyValue: Decodable {
+    case title(String)
+    case richText(String)
+    case select(NotionSelect?)
+    case number(Double?)
+    case uniqueId(NotionUniqueId)
+    case date(NotionDate?)
+    case rollup(NotionRollup)
+    case unknown
+
+    private enum CodingKeys: String, CodingKey {
+        case type, title
+        case richText = "rich_text"
+        case select, number
+        case uniqueId = "unique_id"
+        case date, rollup
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "title":
+            let items = try container.decodeIfPresent([RichTextItem].self, forKey: .title) ?? []
+            self = .title(items.map(\.plainText).joined())
+        case "rich_text":
+            let items = try container.decodeIfPresent([RichTextItem].self, forKey: .richText) ?? []
+            self = .richText(items.map(\.plainText).joined())
+        case "select":
+            self = .select(try container.decodeIfPresent(NotionSelect.self, forKey: .select))
+        case "number":
+            self = .number(try container.decodeIfPresent(Double.self, forKey: .number))
+        case "unique_id":
+            self = .uniqueId(try container.decode(NotionUniqueId.self, forKey: .uniqueId))
+        case "date":
+            self = .date(try container.decodeIfPresent(NotionDate.self, forKey: .date))
+        case "rollup":
+            self = .rollup(try container.decode(NotionRollup.self, forKey: .rollup))
+        default:
+            self = .unknown
+        }
+    }
+}
+
+// MARK: - Notion Page
+
+struct NotionPage: Decodable {
     let pageId: String
-    let properties: [String: Any]
+    let properties: [String: NotionPropertyValue]
+    let lastEditedTime: String?
+
+    enum CodingKeys: String, CodingKey {
+        case pageId = "id"
+        case properties
+        case lastEditedTime = "last_edited_time"
+    }
+
+    // MARK: - Typed property accessors
 
     var taskId: String? {
-        stringProperty("TaskID")
+        guard case .uniqueId(let uid) = properties["ID"] else { return nil }
+        let prefix = uid.prefix ?? ""
+        return prefix.isEmpty ? "\(uid.number)" : "\(prefix)-\(uid.number)"
     }
 
     var status: String? {
-        selectProperty("Status")
+        guard case .select(let sel) = properties["Status"] else { return nil }
+        return sel?.name
     }
 
     var priority: Int? {
-        numberProperty("Priority")
+        guard case .number(let num) = properties["Priority"] else { return nil }
+        return num.flatMap { Int($0) }
     }
 
     var classOfService: String? {
-        selectProperty("ClassOfService")
-    }
-
-    var acceptanceCriteria: String? {
-        richTextProperty("AcceptanceCriteria")
+        guard case .select(let sel) = properties["Class"] else { return nil }
+        return sel?.name
     }
 
     var dependenciesOpenCount: Int? {
-        numberProperty("DependenciesOpenCount")
+        guard case .rollup(let rollup) = properties["Dependencies"] else { return nil }
+        return rollup.number.flatMap { Int($0) }
     }
 
     var claimedBy: String? {
-        selectProperty("ClaimedBy")
+        guard case .select(let sel) = properties["Claimed By"] else { return nil }
+        return sel?.name
     }
 
     var agentRunId: String? {
-        stringProperty("AgentRunID")
+        switch properties["Agent Run"] {
+        case .richText(let text): return text.isEmpty ? nil : text
+        case .title(let text): return text.isEmpty ? nil : text
+        default: return nil
+        }
     }
 
-    var agentName: String? {
-        stringProperty("AgentName")
+    var agent: String? {
+        guard case .select(let sel) = properties["Agent"] else { return nil }
+        return sel?.name
     }
 
     var lockToken: String? {
-        stringProperty("LockToken")
+        switch properties["Lock Token"] {
+        case .richText(let text): return text.isEmpty ? nil : text
+        case .title(let text): return text.isEmpty ? nil : text
+        default: return nil
+        }
     }
 
-    var lockedUntil: String? {
-        dateProperty("LockedUntil")
+    var lockExpires: String? {
+        guard case .date(let d) = properties["Lock Expires"] else { return nil }
+        return d?.start
     }
 
     var blockerReason: String? {
-        stringProperty("BlockerReason")
+        switch properties["BlockerReason"] {
+        case .richText(let text): return text.isEmpty ? nil : text
+        case .title(let text): return text.isEmpty ? nil : text
+        default: return nil
+        }
     }
 
     var unblockAction: String? {
-        stringProperty("UnblockAction")
-    }
-
-    var lastEditedTime: String? {
-        properties["last_edited_time"] as? String
+        switch properties["UnblockAction"] {
+        case .richText(let text): return text.isEmpty ? nil : text
+        case .title(let text): return text.isEmpty ? nil : text
+        default: return nil
+        }
     }
 
     func toSummary() -> [String: Any] {
@@ -65,69 +166,13 @@ struct NotionPage {
         if let v = taskId { dict["task_id"] = v }
         if let v = status { dict["status"] = v }
         if let v = priority { dict["priority"] = v }
-        if let v = classOfService { dict["class_of_service"] = v }
-        if let v = acceptanceCriteria { dict["acceptance_criteria"] = v }
+        if let v = classOfService { dict["class"] = v }
         if let v = claimedBy { dict["claimed_by"] = v }
-        if let v = agentRunId { dict["agent_run_id"] = v }
-        if let v = agentName { dict["agent_name"] = v }
+        if let v = agentRunId { dict["agent_run"] = v }
+        if let v = agent { dict["agent"] = v }
         if let v = lockToken { dict["lock_token"] = v }
-        if let v = lockedUntil { dict["locked_until"] = v }
+        if let v = lockExpires { dict["lock_expires"] = v }
         return dict
-    }
-
-    // MARK: - Property extraction helpers
-
-    private func stringProperty(_ name: String) -> String? {
-        guard let prop = properties[name] as? [String: Any] else { return nil }
-        if let titleArr = prop["title"] as? [[String: Any]] {
-            return titleArr.compactMap { $0["plain_text"] as? String }.joined()
-        }
-        if let rtArr = prop["rich_text"] as? [[String: Any]] {
-            return rtArr.compactMap { $0["plain_text"] as? String }.joined()
-        }
-        return nil
-    }
-
-    private func selectProperty(_ name: String) -> String? {
-        guard let prop = properties[name] as? [String: Any],
-              let select = prop["select"] as? [String: Any],
-              let value = select["name"] as? String else { return nil }
-        return value
-    }
-
-    private func numberProperty(_ name: String) -> Int? {
-        guard let prop = properties[name] as? [String: Any] else { return nil }
-        if let num = prop["number"] as? Int { return num }
-        if let num = prop["number"] as? Double { return Int(num) }
-        if let rollup = prop["rollup"] as? [String: Any],
-           let num = rollup["number"] as? Int { return num }
-        if let rollup = prop["rollup"] as? [String: Any],
-           let num = rollup["number"] as? Double { return Int(num) }
-        return nil
-    }
-
-    private func richTextProperty(_ name: String) -> String? {
-        guard let prop = properties[name] as? [String: Any],
-              let rtArr = prop["rich_text"] as? [[String: Any]] else { return nil }
-        let text = rtArr.compactMap { $0["plain_text"] as? String }.joined()
-        return text.isEmpty ? nil : text
-    }
-
-    private func dateProperty(_ name: String) -> String? {
-        guard let prop = properties[name] as? [String: Any],
-              let dateObj = prop["date"] as? [String: Any],
-              let start = dateObj["start"] as? String else { return nil }
-        return start
-    }
-
-    static func from(json: [String: Any]) -> NotionPage? {
-        guard let id = json["id"] as? String else { return nil }
-        let props = json["properties"] as? [String: Any] ?? [:]
-        var merged = props
-        if let let_ = json["last_edited_time"] as? String {
-            merged["last_edited_time"] = let_
-        }
-        return NotionPage(pageId: id, properties: merged)
     }
 }
 

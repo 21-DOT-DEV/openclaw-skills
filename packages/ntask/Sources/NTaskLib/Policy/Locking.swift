@@ -22,7 +22,7 @@ enum LockVerifier {
             return .lostLock
         }
         // Also check if lock is expired
-        if let lockedUntil = page.lockedUntil, Time.isExpired(lockedUntil) {
+        if let lockExpires = page.lockExpires, Time.isExpired(lockExpires) {
             return .lostLock
         }
         return .success

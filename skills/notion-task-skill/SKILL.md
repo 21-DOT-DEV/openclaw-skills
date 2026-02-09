@@ -107,6 +107,7 @@ command definitions with parameter schemas, exit codes, and examples.
 
 ## References
 
+- **[Task Triage](references/task-triage.md)** — Decision-making framework before claiming work
 - **[Workflow](references/workflow.md)** — Full agent lifecycle, retry policy, error recovery matrix
 - **[Task Schema](references/schema.md)** — Required Notion database properties
 - **[Pull Policy](references/pull_policy.md)** — Deterministic task selection and locking rules

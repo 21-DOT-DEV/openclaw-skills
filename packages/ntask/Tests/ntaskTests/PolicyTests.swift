@@ -12,32 +12,27 @@ struct PullPolicySortTests {
         status: String = "READY",
         priority: Int = 5,
         classOfService: String = "STANDARD",
-        acceptanceCriteria: String = "Do the thing",
-        dependenciesOpenCount: Int = 0,
         claimedBy: String? = nil,
         lockToken: String? = nil,
-        lockedUntil: String? = nil,
+        lockExpires: String? = nil,
         lastEditedTime: String = "2025-01-01T00:00:00Z"
     ) -> NotionPage {
-        var props: [String: Any] = [
-            "TaskID": ["rich_text": [["plain_text": taskId]]],
-            "Status": ["select": ["name": status]],
-            "Priority": ["number": priority],
-            "ClassOfService": ["select": ["name": classOfService]],
-            "AcceptanceCriteria": ["rich_text": [["plain_text": acceptanceCriteria]]],
-            "DependenciesOpenCount": ["rollup": ["number": dependenciesOpenCount]],
-            "last_edited_time": lastEditedTime
+        var props: [String: NotionPropertyValue] = [
+            "ID": .uniqueId(NotionUniqueId(prefix: "TASK", number: 1)),
+            "Status": .select(NotionSelect(name: status)),
+            "Priority": .number(Double(priority)),
+            "Class": .select(NotionSelect(name: classOfService))
         ]
         if let claimedBy {
-            props["ClaimedBy"] = ["select": ["name": claimedBy]]
+            props["Claimed By"] = .select(NotionSelect(name: claimedBy))
         }
         if let lockToken {
-            props["LockToken"] = ["rich_text": [["plain_text": lockToken]]]
+            props["Lock Token"] = .richText(lockToken)
         }
-        if let lockedUntil {
-            props["LockedUntil"] = ["date": ["start": lockedUntil]]
+        if let lockExpires {
+            props["Lock Expires"] = .date(NotionDate(start: lockExpires))
         }
-        return NotionPage(pageId: pageId, properties: props)
+        return NotionPage(pageId: pageId, properties: props, lastEditedTime: lastEditedTime)
     }
 
     // MARK: - ClassOfService Rank Tests
@@ -113,7 +108,7 @@ struct PullPolicySortTests {
 
     // MARK: - Eligibility Tests
 
-    @Test("Eligible: READY, no claim, has AC, deps = 0")
+    @Test("Eligible: READY, no claim, lock empty")
     func eligibleTask() {
         let page = makePage()
         #expect(PullPolicy.isEligible(page) == true)
@@ -134,27 +129,15 @@ struct PullPolicySortTests {
     @Test("Not eligible: active lock (not expired)")
     func notEligibleActiveLock() {
         let future = Time.iso8601(Time.leaseExpiry(minutes: 30))
-        let page = makePage(claimedBy: "AGENT", lockedUntil: future)
+        let page = makePage(claimedBy: "AGENT", lockExpires: future)
         #expect(PullPolicy.isEligible(page) == false)
     }
 
     @Test("Eligible: expired lock")
     func eligibleExpiredLock() {
         let past = "2020-01-01T00:00:00Z"
-        let page = makePage(claimedBy: "AGENT", lockedUntil: past)
+        let page = makePage(claimedBy: "AGENT", lockExpires: past)
         #expect(PullPolicy.isEligible(page) == true)
-    }
-
-    @Test("Not eligible: no acceptance criteria")
-    func notEligibleNoAC() {
-        let page = makePage(acceptanceCriteria: "")
-        #expect(PullPolicy.isEligible(page) == false)
-    }
-
-    @Test("Not eligible: open dependencies")
-    func notEligibleOpenDeps() {
-        let page = makePage(dependenciesOpenCount: 2)
-        #expect(PullPolicy.isEligible(page) == false)
     }
 }
 
@@ -163,16 +146,16 @@ struct LockVerificationTests {
 
     private func makePage(
         lockToken: String?,
-        lockedUntil: String? = nil
+        lockExpires: String? = nil
     ) -> NotionPage {
-        var props: [String: Any] = [:]
+        var props: [String: NotionPropertyValue] = [:]
         if let lockToken {
-            props["LockToken"] = ["rich_text": [["plain_text": lockToken]]]
+            props["Lock Token"] = .richText(lockToken)
         }
-        if let lockedUntil {
-            props["LockedUntil"] = ["date": ["start": lockedUntil]]
+        if let lockExpires {
+            props["Lock Expires"] = .date(NotionDate(start: lockExpires))
         }
-        return NotionPage(pageId: "page-1", properties: props)
+        return NotionPage(pageId: "page-1", properties: props, lastEditedTime: nil)
     }
 
     @Test("Verify claim: matching token succeeds")
@@ -199,7 +182,7 @@ struct LockVerificationTests {
     @Test("Verify lock: matching token and valid lease succeeds")
     func verifyLockSuccess() {
         let future = Time.iso8601(Time.leaseExpiry(minutes: 30))
-        let page = makePage(lockToken: "token-abc", lockedUntil: future)
+        let page = makePage(lockToken: "token-abc", lockExpires: future)
         let result = LockVerifier.verifyLock(page: page, expectedToken: "token-abc")
         #expect(result == .success)
     }
@@ -207,7 +190,7 @@ struct LockVerificationTests {
     @Test("Verify lock: expired lease is lost lock")
     func verifyLockExpired() {
         let past = "2020-01-01T00:00:00Z"
-        let page = makePage(lockToken: "token-abc", lockedUntil: past)
+        let page = makePage(lockToken: "token-abc", lockExpires: past)
         let result = LockVerifier.verifyLock(page: page, expectedToken: "token-abc")
         #expect(result == .lostLock)
     }
@@ -215,7 +198,7 @@ struct LockVerificationTests {
     @Test("Verify lock: wrong token is lost lock")
     func verifyLockWrongToken() {
         let future = Time.iso8601(Time.leaseExpiry(minutes: 30))
-        let page = makePage(lockToken: "token-other", lockedUntil: future)
+        let page = makePage(lockToken: "token-other", lockExpires: future)
         let result = LockVerifier.verifyLock(page: page, expectedToken: "token-abc")
         #expect(result == .lostLock)
     }

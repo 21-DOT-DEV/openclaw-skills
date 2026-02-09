@@ -103,8 +103,11 @@ Manages Notion-backed tasks via the `ntask` CLI. The agent interacts with Notion
 All commands output JSON only. See [SKILL.md](skills/notion-task-skill/SKILL.md) for full usage and [references/](skills/notion-task-skill/references/) for schema, policy, and examples.
 
 **Required environment variables:**
-- `NOTION_TOKEN` — Notion API integration token
 - `NOTION_TASKS_DB_ID` — Notion tasks database ID
+
+**Authentication** (one of):
+- `notion auth login` — OAuth stored in system keychain (preferred)
+- `NOTION_TOKEN` env var — Notion API integration token (fallback)
 
 ### notion-cli (external_cli)
 

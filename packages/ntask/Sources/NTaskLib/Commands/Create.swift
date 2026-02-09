@@ -6,9 +6,6 @@ struct Create: AsyncParsableCommand {
         abstract: "Create a new task or subtask"
     )
 
-    @Option(name: .long, help: "Unique task identifier")
-    var taskId: String
-
     @Option(name: .long, help: "Task title")
     var title: String
 
@@ -17,9 +14,6 @@ struct Create: AsyncParsableCommand {
 
     @Option(name: .long, help: "Class of service: EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE")
     var classOfService: String = "STANDARD"
-
-    @Option(name: .long, help: "Acceptance criteria / definition of done")
-    var acceptanceCriteria: String?
 
     @Option(name: .long, help: "Parent TaskID to create a subtask under")
     var parent: String?
@@ -50,41 +44,21 @@ struct Create: AsyncParsableCommand {
             }
 
             // Build properties
-            var properties: [String: Any] = [
-                "TaskID": ["rich_text": [["text": ["content": taskId]]]],
+            let properties: [String: Any] = [
                 "title": ["title": [["text": ["content": title]]]],
                 "Status": ["select": ["name": status.uppercased()]],
                 "Priority": ["number": priority],
-                "ClassOfService": ["select": ["name": classOfService.uppercased()]]
+                "Class": ["select": ["name": classOfService.uppercased()]]
             ]
-            if let ac = acceptanceCriteria {
-                properties["AcceptanceCriteria"] = ["rich_text": [["text": ["content": ac]]]]
-            }
 
             // If parent specified, validate it exists before creating
             var parentTaskId: String? = nil
-            var parentPage: NotionPage? = nil
             if let parentId = parent {
-                parentPage = try await NotionCLI.resolveTaskIdToPage(parentId)
+                _ = try await NotionCLI.resolveTaskIdToPage(parentId)
                 parentTaskId = parentId
             }
 
             let page = try await NotionCLI.createPage(properties: properties)
-
-            // Update parent's DependenciesOpenCount after child creation
-            var warning: String? = nil
-            if let parentPage, let parentId = parentTaskId {
-                do {
-                    let currentCount = parentPage.dependenciesOpenCount ?? 0
-                    let newCount = currentCount + 1
-                    try await NotionCLI.updateProperties(
-                        pageId: parentPage.pageId,
-                        properties: ["DependenciesOpenCount": ["number": newCount]]
-                    )
-                } catch {
-                    warning = "Task created but failed to update parent '\(parentId)' DependenciesOpenCount. Update it manually."
-                }
-            }
 
             var result: [String: Any] = [:]
             var summary = page.toSummary()
@@ -92,9 +66,6 @@ struct Create: AsyncParsableCommand {
                 summary["parent_task_id"] = pid
             }
             result["task"] = summary
-            if let w = warning {
-                result["warning"] = w
-            }
 
             JSONOut.success(result)
         } catch let error as NTaskError {

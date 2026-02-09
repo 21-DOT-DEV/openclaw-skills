@@ -92,19 +92,18 @@ keychain credentials are not available.
 3. Name it (e.g., "Agent Tasks")
 4. Add each required property:
 
-| Property               | Type   | Select Values (if applicable)                                          |
-|------------------------|--------|------------------------------------------------------------------------|
-| TaskID                 | Text   | —                                                                      |
-| Status                 | Select | BACKLOG, READY, IN_PROGRESS, BLOCKED, REVIEW, DONE, CANCELED          |
-| Priority               | Number | —                                                                      |
-| ClassOfService         | Select | EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE                            |
-| AcceptanceCriteria     | Rich Text | —                                                                   |
-| ClaimedBy              | Select | AGENT, HUMAN                                                           |
-| AgentRunID             | Text   | —                                                                      |
-| AgentName              | Text   | —                                                                      |
-| LockToken              | Text   | —                                                                      |
-| LockedUntil            | Date   | —                                                                      |
-| DependenciesOpenCount  | Number | — (or Rollup counting open deps; must be 0 for task to be READY)      |
+| Property               | Type      | Select Values (if applicable)                                          |
+|------------------------|-----------|------------------------------------------------------------------------|
+| ID                     | Unique ID | Auto-generated (e.g., TASK-42)                                         |
+| Status                 | Select    | BACKLOG, READY, IN_PROGRESS, BLOCKED, REVIEW, DONE, CANCELED          |
+| Priority               | Number    | —                                                                      |
+| Class                  | Select    | EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE                            |
+| Claimed By             | Select    | AGENT, HUMAN                                                           |
+| Agent Run              | Text      | —                                                                      |
+| Agent                  | Select    | Agent name/identifier                                                  |
+| Lock Token             | Text      | —                                                                      |
+| Lock Expires           | Date      | —                                                                      |
+| Dependencies           | Rollup    | Counts open sub-tasks; parent blocked from completion when > 0         |
 
 See [schema.md](schema.md) for the full property reference including optional
 fields (Artifacts, BlockerReason, StartedAt, DoneAt, etc.).
@@ -114,17 +113,16 @@ fields (Artifacts, BlockerReason, StartedAt, DoneAt, etc.).
 If you already have a Notion task database, verify it has the required
 properties. Open the database and check each one:
 
-- [ ] **TaskID** — Text property with unique identifiers
+- [ ] **ID** — Unique ID property (auto-generated, e.g., TASK-42)
 - [ ] **Status** — Select with values: BACKLOG, READY, IN_PROGRESS, BLOCKED, REVIEW, DONE, CANCELED
 - [ ] **Priority** — Number (higher = more urgent)
-- [ ] **ClassOfService** — Select with values: EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE
-- [ ] **AcceptanceCriteria** — Rich Text describing the definition of done
-- [ ] **ClaimedBy** — Select with values: AGENT, HUMAN
-- [ ] **AgentRunID** — Text (can be empty initially)
-- [ ] **AgentName** — Text (can be empty initially)
-- [ ] **LockToken** — Text (can be empty initially)
-- [ ] **LockedUntil** — Date (can be empty initially)
-- [ ] **DependenciesOpenCount** — Number or Rollup (must be 0 for READY tasks)
+- [ ] **Class** — Select with values: EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE
+- [ ] **Claimed By** — Select with values: AGENT, HUMAN
+- [ ] **Agent Run** — Text (can be empty initially)
+- [ ] **Agent** — Select (agent name/identifier, can be empty initially)
+- [ ] **Lock Token** — Text (can be empty initially)
+- [ ] **Lock Expires** — Date (can be empty initially)
+- [ ] **Dependencies** — Rollup on Sub-tasks relation (counts open sub-tasks)
 
 Add any missing properties. Property names must match **exactly** (case-sensitive).
 
@@ -194,7 +192,7 @@ task.
 | Check Failed          | Fix                                                     |
 |-----------------------|---------------------------------------------------------|
 | notion_cli not found  | Re-install notion-cli (step 1)                          |
-| env_NOTION_TOKEN      | Run `notion auth add-token` or set NOTION_TOKEN (step 2)|
+| notion_token          | Run `notion auth login` or set NOTION_TOKEN (step 2)    |
 | env_NOTION_TASKS_DB_ID| Set NOTION_TASKS_DB_ID in your environment (step 5)     |
 | db_accessible = false | Share the database with your integration (step 4)       |
 

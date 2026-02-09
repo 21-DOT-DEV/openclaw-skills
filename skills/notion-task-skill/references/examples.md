@@ -11,17 +11,16 @@ are present in every response — only populated fields are included.
 | Field                | Type    | Always Present | Description                          |
 |----------------------|---------|----------------|--------------------------------------|
 | `page_id`            | string  | ✓              | Notion page UUID                     |
-| `task_id`            | string  | ✓              | Human-readable TaskID                |
+| `task_id`            | string  | ✓              | Human-readable task ID (e.g., TASK-42) |
 | `status`             | string  | ✓              | Current lifecycle status             |
 | `priority`           | number  |                | Numeric priority                     |
-| `class_of_service`   | string  |                | EXPEDITE/FIXED_DATE/STANDARD/INTANGIBLE |
-| `acceptance_criteria`| string  |                | Definition of done                   |
+| `class`              | string  |                | EXPEDITE/FIXED_DATE/STANDARD/INTANGIBLE |
 | `claimed_by`         | string  |                | AGENT or HUMAN                       |
-| `agent_run_id`       | string  |                | Current agent's run identifier       |
-| `agent_name`         | string  |                | Current agent's name                 |
+| `agent_run`          | string  |                | Current agent's run identifier       |
+| `agent`              | string  |                | Current agent's name                 |
 | `lock_token`         | string  |                | UUID lock token                      |
-| `locked_until`       | string  |                | ISO 8601 lock expiry                 |
-| `parent_task_id`     | string  |                | Parent TaskID (subtasks only)        |
+| `lock_expires`       | string  |                | ISO 8601 lock expiry                 |
+| `parent_task_id`     | string  |                | Parent task ID (subtasks only)       |
 | `reason`             | string  |                | Cancellation/block reason            |
 
 ## doctor
@@ -39,7 +38,7 @@ ntask doctor
   "ok": true,
   "checks": {
     "notion_cli": { "found": true, "version": "0.6.0" },
-    "env_NOTION_TOKEN": true,
+    "notion_token": { "available": true, "source": "environment" },
     "env_NOTION_TASKS_DB_ID": true,
     "db_accessible": true
   }
@@ -54,7 +53,7 @@ ntask doctor
   "error": { "code": "CLI_MISSING", "message": "notion binary not found in PATH" },
   "checks": {
     "notion_cli": { "found": false },
-    "env_NOTION_TOKEN": true,
+    "notion_token": { "available": true, "source": "environment" },
     "env_NOTION_TASKS_DB_ID": true
   }
 }
@@ -78,8 +77,7 @@ ntask next
     "task_id": "PROJ-42",
     "status": "READY",
     "priority": 8,
-    "class_of_service": "STANDARD",
-    "acceptance_criteria": "Implement the login flow with OAuth2"
+    "class": "STANDARD"
   }
 }
 ```
@@ -115,10 +113,10 @@ ntask claim PROJ-42 \
     "task_id": "PROJ-42",
     "status": "IN_PROGRESS",
     "lock_token": "550e8400-e29b-41d4-a716-446655440000",
-    "locked_until": "2025-01-15T14:50:00Z",
+    "lock_expires": "2025-01-15T14:50:00Z",
     "claimed_by": "AGENT",
-    "agent_run_id": "run-abc-123",
-    "agent_name": "coding-agent-1"
+    "agent_run": "run-abc-123",
+    "agent": "coding-agent-1"
   }
 }
 ```
@@ -134,7 +132,7 @@ ntask claim PROJ-42 \
     "task_id": "PROJ-42",
     "status": "IN_PROGRESS",
     "claimed_by": "AGENT",
-    "agent_run_id": "run-other-456"
+    "agent_run": "run-other-456"
   }
 }
 ```
@@ -158,7 +156,7 @@ ntask heartbeat PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "locked_until": "2025-01-15T15:10:00Z"
+    "lock_expires": "2025-01-15T15:10:00Z"
   }
 }
 ```
@@ -173,7 +171,7 @@ ntask heartbeat PROJ-42 \
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
     "claimed_by": "AGENT",
-    "agent_run_id": "run-other-789"
+    "agent_run": "run-other-789"
   }
 }
 ```
@@ -237,17 +235,15 @@ ntask block PROJ-42 \
 Create a new top-level task:
 
 ```bash
-ntask create --task-id "PROJ-99" --title "Implement auth flow" \
-  --priority 8 --class-of-service STANDARD \
-  --acceptance-criteria "OAuth2 login works end-to-end"
+ntask create --title "Implement auth flow" \
+  --priority 8 --class-of-service STANDARD
 ```
 
 Create a subtask linked to a parent:
 
 ```bash
-ntask create --task-id "PROJ-99a" --title "Setup OAuth provider" \
-  --parent "PROJ-99" --priority 8 --class-of-service STANDARD \
-  --acceptance-criteria "Provider configured and returning tokens"
+ntask create --title "Setup OAuth provider" \
+  --parent "TASK-99" --priority 8 --class-of-service STANDARD
 ```
 
 ### Success
@@ -257,9 +253,9 @@ ntask create --task-id "PROJ-99a" --title "Setup OAuth provider" \
   "ok": true,
   "task": {
     "page_id": "new-page-id",
-    "task_id": "PROJ-99a",
+    "task_id": "TASK-100",
     "status": "READY",
-    "parent_task_id": "PROJ-99"
+    "parent_task_id": "TASK-99"
   }
 }
 ```
@@ -319,8 +315,7 @@ ntask get PROJ-42
     "task_id": "PROJ-42",
     "status": "READY",
     "priority": 8,
-    "class_of_service": "STANDARD",
-    "acceptance_criteria": "Users can log in via OAuth2"
+    "class": "STANDARD"
   }
 }
 ```
@@ -399,12 +394,6 @@ Update task priority:
 ntask update PROJ-42 --priority 10
 ```
 
-Update acceptance criteria:
-
-```bash
-ntask update PROJ-42 --acceptance-criteria "Must support SSO in addition to OAuth2"
-```
-
 Unblock a task (move from BLOCKED to READY):
 
 ```bash
@@ -421,7 +410,7 @@ ntask update PROJ-42 --status READY
     "task_id": "PROJ-42",
     "status": "READY",
     "priority": 10,
-    "acceptance_criteria": "Must support SSO in addition to OAuth2"
+    "class": "STANDARD"
   }
 }
 ```

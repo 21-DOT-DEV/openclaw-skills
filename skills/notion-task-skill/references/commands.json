@@ -17,7 +17,7 @@
           "intent": "Check if the environment is properly configured",
           "command": "ntask doctor",
           "output_format": "json",
-          "example_output": { "ok": true, "checks": { "notion_cli": { "found": true }, "env_NOTION_TOKEN": true, "db_accessible": true } },
+          "example_output": { "ok": true, "checks": { "notion_cli": { "found": true }, "notion_token": { "available": true, "source": "environment" }, "db_accessible": true } },
           "exit_code": 0
         }
       ]
@@ -142,6 +142,7 @@
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task marked DONE",
+        "3": "INCOMPLETE_SUBTASKS — open sub-tasks remain",
         "4": "LOST_LOCK",
         "5": "API_ERROR"
       },
@@ -303,7 +304,7 @@
               "task_id": "TASK-42",
               "status": "IN_PROGRESS",
               "priority": 1,
-              "acceptance_criteria": "Login works with valid credentials"
+              "class": "STANDARD"
             }
           },
           "exit_code": 0

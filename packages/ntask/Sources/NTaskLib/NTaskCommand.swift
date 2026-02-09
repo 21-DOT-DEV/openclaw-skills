@@ -1,7 +1,7 @@
 import ArgumentParser
 
 public enum NTaskVersion {
-    public static let current = "0.1.0"
+    public static let current = "0.2.0"
 }
 
 public struct NTaskCommand: AsyncParsableCommand {

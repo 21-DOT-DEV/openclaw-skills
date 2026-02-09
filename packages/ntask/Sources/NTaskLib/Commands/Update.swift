@@ -15,20 +15,16 @@ struct Update: AsyncParsableCommand {
     @Option(name: .long, help: "New class of service")
     var classOfService: String?
 
-    @Option(name: .long, help: "Updated acceptance criteria")
-    var acceptanceCriteria: String?
-
     @Option(name: .long, help: "New status (cannot set to DONE — use complete)")
     var status: String?
 
     func run() async throws {
         do {
             // Validate at least one property provided
-            guard priority != nil || classOfService != nil ||
-                  acceptanceCriteria != nil || status != nil else {
+            guard priority != nil || classOfService != nil || status != nil else {
                 JSONOut.error(
                     code: "MISCONFIGURED",
-                    message: "At least one property must be specified (--priority, --class-of-service, --acceptance-criteria, --status)",
+                    message: "At least one property must be specified (--priority, --class-of-service, --status)",
                     exitCode: ExitCodes.misconfigured
                 )
             }
@@ -77,10 +73,7 @@ struct Update: AsyncParsableCommand {
                 properties["Priority"] = ["number": p]
             }
             if let cos = classOfService {
-                properties["ClassOfService"] = ["select": ["name": cos.uppercased()]]
-            }
-            if let ac = acceptanceCriteria {
-                properties["AcceptanceCriteria"] = ["rich_text": [["text": ["content": ac]]]]
+                properties["Class"] = ["select": ["name": cos.uppercased()]]
             }
             if let s = status {
                 properties["Status"] = ["select": ["name": s.uppercased()]]
