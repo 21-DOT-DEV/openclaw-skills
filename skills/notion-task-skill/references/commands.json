@@ -40,15 +40,7 @@
           "intent": "Get the highest-priority ready task",
           "command": "ntask next",
           "output_format": "json",
-          "example_output": {
-            "ok": true,
-            "task": {
-              "page_id": "abc-123",
-              "task_id": "TASK-42",
-              "status": "Ready",
-              "priority": 1
-            }
-          },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "task_id": "TASK-42", "status": "Ready", "priority": 1 } },
           "exit_code": 0
         }
       ]
@@ -81,14 +73,7 @@
           "intent": "Claim a task for this agent run",
           "command": "ntask claim --page-id abc-123 --run-id run-001",
           "output_format": "json",
-          "example_output": {
-            "ok": true,
-            "task": {
-              "page_id": "abc-123",
-              "status": "In Progress",
-              "lock_token": "uuid-lock-token"
-            }
-          },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "In Progress", "lock_token": "uuid-lock-token" } },
           "exit_code": 0
         }
       ]
@@ -224,15 +209,7 @@
           "intent": "Create a new task",
           "command": "ntask create --title \"Fix login bug\" --priority 2",
           "output_format": "json",
-          "example_output": {
-            "ok": true,
-            "task": {
-              "page_id": "new-456",
-              "task_id": "TASK-99",
-              "status": "Ready",
-              "priority": 2
-            }
-          },
+          "example_output": { "ok": true, "task": { "page_id": "new-456", "task_id": "TASK-99", "status": "Ready", "priority": 2 } },
           "exit_code": 0
         }
       ]
@@ -296,16 +273,7 @@
           "intent": "Get full details of a specific task",
           "command": "ntask get --page-id abc-123",
           "output_format": "json",
-          "example_output": {
-            "ok": true,
-            "task": {
-              "page_id": "abc-123",
-              "task_id": "TASK-42",
-              "status": "In Progress",
-              "priority": 1,
-              "class": "Standard"
-            }
-          },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "task_id": "TASK-42", "status": "In Progress", "priority": 1, "class": "Standard" } },
           "exit_code": 0
         }
       ]
@@ -378,6 +346,72 @@
       ]
     },
     {
+      "name": "approve",
+      "binary": "ntask",
+      "description": "Approve a reviewed task and mark as Done",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "<task-id>": { "type": "string", "description": "TaskID to approve (e.g. TASK-42)" },
+          "--summary": { "type": "string", "description": "Optional approval summary (added as comment)" }
+        },
+        "required": ["<task-id>"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task approved and marked Done",
+        "3": "MISCONFIGURED — task not in Review status",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Approve this task and mark as Done?",
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Approve a reviewed task (optionally with --summary comment)",
+          "command": "ntask approve TASK-42 --summary \"LGTM, clean implementation\"",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "task_id": "TASK-42", "status": "Done", "done_at": "2026-02-11T10:00:00Z" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "rework",
+      "binary": "ntask",
+      "description": "Send a reviewed task back for rework",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "<task-id>": { "type": "string", "description": "TaskID to send back (e.g. TASK-42)" },
+          "--reason": { "type": "string", "description": "Reason for rework (feedback for the worker)" }
+        },
+        "required": ["<task-id>", "--reason"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task sent back to Ready",
+        "3": "MISCONFIGURED — task not in Review status",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Send this task back for rework?",
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Send task back for rework with feedback",
+          "command": "ntask rework TASK-42 --reason \"Needs markdown formatting in README\"",
+          "output_format": "json",
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "task_id": "TASK-42", "status": "Ready", "reason": "Needs markdown formatting in README" } },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
       "name": "cancel",
       "binary": "ntask",
       "description": "Cancel a task with reason",
@@ -440,13 +474,7 @@
           "intent": "Update a task's priority",
           "command": "ntask update --page-id abc-123 --priority 1",
           "output_format": "json",
-          "example_output": {
-            "ok": true,
-            "task": {
-              "page_id": "abc-123",
-              "priority": 1
-            }
-          },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "priority": 1 } },
           "exit_code": 0
         }
       ]
@@ -463,10 +491,7 @@
           "intent": "Check ntask version",
           "command": "ntask version",
           "output_format": "json",
-          "example_output": {
-            "ok": true,
-            "version": "0.6.0"
-          },
+          "example_output": { "ok": true, "version": "0.6.0" },
           "exit_code": 0
         }
       ]

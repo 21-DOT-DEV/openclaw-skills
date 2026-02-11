@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1] - 2026-02-11
+
+### Added
+- **`approve` command**: Approve a reviewed task (Review → Done). No lock required.
+  Optional `--summary` flag adds an approval comment.
+- **`rework` command**: Send a reviewed task back for rework (Review → Ready). No lock
+  required. Required `--reason` flag adds feedback as a comment.
+
+### Changed
+- `update` command now guards against setting Review status directly — use `review` instead
+
 ## [0.3.0] - 2026-02-11
 
 ### Breaking Changes

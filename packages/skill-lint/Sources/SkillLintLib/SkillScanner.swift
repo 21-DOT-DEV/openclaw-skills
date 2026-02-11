@@ -54,22 +54,36 @@ public struct SkillScanner: Sendable {
             let skillName = item.lastPathComponent
             let content = try String(contentsOfFile: skillMDPath, encoding: .utf8)
 
+            // SKILL.md line limit check
+            let skillMDTrimmed = content.hasSuffix("\n") ? String(content.dropLast()) : content
+            let skillMDLineCount = skillMDTrimmed.components(separatedBy: "\n").count
+            var fileChecks: [LintDiagnostic] = []
+            if skillMDLineCount > 200 {
+                fileChecks.append(LintDiagnostic(
+                    skill: skillName, severity: .warning,
+                    message: "SKILL.md: \(skillMDLineCount) lines exceeds 200-line limit — keep the agent entry point concise"
+                ))
+            }
+
+            // Broken reference link check
+            fileChecks += validateMarkdownLinks(content: content, skillDir: item, skill: skillName)
+
             guard let rawYAML = parser.extractRawFrontmatter(from: content) else {
                 // No frontmatter found
                 let severity: LintDiagnostic.Severity = strict ? .error : .warning
+                var noFMDiags = fileChecks
+                noFMDiags.append(LintDiagnostic(skill: skillName, severity: severity, message: "no YAML frontmatter found in SKILL.md"))
                 results.append(SkillResult(
                     directory: skillName,
                     hasFrontmatter: false,
-                    diagnostics: [
-                        LintDiagnostic(skill: skillName, severity: severity, message: "no YAML frontmatter found in SKILL.md")
-                    ]
+                    diagnostics: noFMDiags
                 ))
                 continue
             }
 
             do {
                 let frontmatter = try parser.parse(yaml: rawYAML)
-                var diagnostics = validator.validate(frontmatter: frontmatter, skill: skillName)
+                var diagnostics = fileChecks + validator.validate(frontmatter: frontmatter, skill: skillName)
 
                 let commandsPath = item.appendingPathComponent("references/commands.json").path
                 let examplesPath = item.appendingPathComponent("references/examples.json").path
@@ -78,6 +92,15 @@ public struct SkillScanner: Sendable {
 
                 if hasCommands {
                     let commandsData = try Data(contentsOf: URL(fileURLWithPath: commandsPath))
+                    let commandsContent = try String(contentsOfFile: commandsPath, encoding: .utf8)
+                    let trimmed = commandsContent.hasSuffix("\n") ? String(commandsContent.dropLast()) : commandsContent
+                    let lineCount = trimmed.components(separatedBy: "\n").count
+                    if lineCount > 500 {
+                        diagnostics.append(LintDiagnostic(
+                            skill: skillName, severity: .warning,
+                            message: "commands.json: \(lineCount) lines exceeds 500-line limit — split commands or reduce examples"
+                        ))
+                    }
                     diagnostics += commandsValidator.validate(data: commandsData, skill: skillName)
                     diagnostics += crossValidateCapabilities(
                         commandsData: commandsData, frontmatter: frontmatter, skill: skillName
@@ -110,6 +133,34 @@ public struct SkillScanner: Sendable {
         }
 
         return results
+    }
+
+    /// Check markdown links in SKILL.md for broken relative references.
+    private func validateMarkdownLinks(content: String, skillDir: URL, skill: String) -> [LintDiagnostic] {
+        var diagnostics: [LintDiagnostic] = []
+        let fm = FileManager.default
+        // Match [text](path) but skip URLs (http://, https://, mailto:)
+        let pattern = try! NSRegularExpression(pattern: #"\[([^\]]+)\]\(([^)]+)\)"#)
+        let matches = pattern.matches(in: content, range: NSRange(content.startIndex..., in: content))
+        for match in matches {
+            guard let pathRange = Range(match.range(at: 2), in: content) else { continue }
+            let linkPath = String(content[pathRange])
+            // Skip external URLs and anchors
+            if linkPath.hasPrefix("http://") || linkPath.hasPrefix("https://") ||
+               linkPath.hasPrefix("mailto:") || linkPath.hasPrefix("#") {
+                continue
+            }
+            // Strip anchor fragments (e.g. "file.md#section")
+            let filePath = linkPath.components(separatedBy: "#").first ?? linkPath
+            let resolved = skillDir.appendingPathComponent(filePath).path
+            if !fm.fileExists(atPath: resolved) {
+                diagnostics.append(LintDiagnostic(
+                    skill: skill, severity: .warning,
+                    message: "SKILL.md: broken link '\(linkPath)' — target file not found"
+                ))
+            }
+        }
+        return diagnostics
     }
 
     /// Cross-validate capability fields in commands.json against frontmatter capabilities.

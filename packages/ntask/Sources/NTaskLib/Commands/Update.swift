@@ -33,7 +33,8 @@ struct Update: AsyncParsableCommand {
             if let s = status {
                 let commandForStatus: [TaskStatus: String] = [
                     .done: "complete",
-                    .inProgress: "claim"
+                    .inProgress: "claim",
+                    .review: "review"
                 ]
                 if let cmd = commandForStatus[s] {
                     JSONOut.error(

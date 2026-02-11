@@ -359,6 +359,84 @@ ntask review PROJ-42 --run-id "run-abc-123" \
 }
 ```
 
+## approve
+
+Approve a reviewed task:
+
+```bash
+ntask approve PROJ-42
+```
+
+With an approval summary:
+
+```bash
+ntask approve PROJ-42 --summary "LGTM, clean implementation"
+```
+
+### Success
+
+```json
+{
+  "ok": true,
+  "task": {
+    "page_id": "abc123-def456",
+    "task_id": "PROJ-42",
+    "status": "Done",
+    "done_at": "2026-02-11T10:00:00Z"
+  }
+}
+```
+
+### Wrong Status
+
+```json
+{
+  "ok": false,
+  "error": { "code": "MISCONFIGURED", "message": "Task must be in Review status to approve (current: In Progress)" },
+  "task": {
+    "page_id": "abc123-def456",
+    "task_id": "PROJ-42",
+    "status": "In Progress"
+  }
+}
+```
+
+## rework
+
+Send a reviewed task back for rework:
+
+```bash
+ntask rework PROJ-42 --reason "Needs markdown formatting in README"
+```
+
+### Success
+
+```json
+{
+  "ok": true,
+  "task": {
+    "page_id": "abc123-def456",
+    "task_id": "PROJ-42",
+    "status": "Ready",
+    "reason": "Needs markdown formatting in README"
+  }
+}
+```
+
+### Wrong Status
+
+```json
+{
+  "ok": false,
+  "error": { "code": "MISCONFIGURED", "message": "Task must be in Review status to rework (current: Done)" },
+  "task": {
+    "page_id": "abc123-def456",
+    "task_id": "PROJ-42",
+    "status": "Done"
+  }
+}
+```
+
 ## cancel
 
 Cancel a task:
