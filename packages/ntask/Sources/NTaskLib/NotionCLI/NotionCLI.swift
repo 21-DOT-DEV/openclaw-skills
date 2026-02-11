@@ -228,7 +228,7 @@ enum NotionCLI {
         }
         let result = try await ProcessRunner.run(
             executable: "notion",
-            arguments: ["page", "create", "--parent", dbId, "--properties", jsonStr],
+            arguments: ["page", "create", "--parent", dbId, "--parent-type", "database", "--properties", jsonStr],
             environment: notionEnv
         )
         guard result.exitCode == 0 else {
