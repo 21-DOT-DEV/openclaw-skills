@@ -33,6 +33,7 @@ enum NotionPropertyValue: Decodable {
     case title(String)
     case richText(String)
     case select(NotionSelect?)
+    case status(NotionSelect?)
     case number(Double?)
     case uniqueId(NotionUniqueId)
     case date(NotionDate?)
@@ -42,7 +43,7 @@ enum NotionPropertyValue: Decodable {
     private enum CodingKeys: String, CodingKey {
         case type, title
         case richText = "rich_text"
-        case select, number
+        case select, status, number
         case uniqueId = "unique_id"
         case date, rollup
     }
@@ -59,6 +60,8 @@ enum NotionPropertyValue: Decodable {
             self = .richText(items.map(\.plainText).joined())
         case "select":
             self = .select(try container.decodeIfPresent(NotionSelect.self, forKey: .select))
+        case "status":
+            self = .status(try container.decodeIfPresent(NotionSelect.self, forKey: .status))
         case "number":
             self = .number(try container.decodeIfPresent(Double.self, forKey: .number))
         case "unique_id":
@@ -95,7 +98,7 @@ struct NotionPage: Decodable {
     }
 
     var status: String? {
-        guard case .select(let sel) = properties["Status"] else { return nil }
+        guard case .status(let sel) = properties["Status"] else { return nil }
         return sel?.name
     }
 
@@ -109,8 +112,15 @@ struct NotionPage: Decodable {
         return sel?.name
     }
 
-    var dependenciesOpenCount: Int? {
+    /// Total number of sub-tasks (Dependencies rollup counts all relations)
+    var dependencies: Int? {
         guard case .rollup(let rollup) = properties["Dependencies"] else { return nil }
+        return rollup.number.flatMap { Int($0) }
+    }
+
+    /// Number of sub-tasks in Complete group (Done + Canceled)
+    var completedSubtasks: Int? {
+        guard case .rollup(let rollup) = properties["Completed Sub-tasks"] else { return nil }
         return rollup.number.flatMap { Int($0) }
     }
 
@@ -146,15 +156,25 @@ struct NotionPage: Decodable {
     }
 
     var blockerReason: String? {
-        switch properties["BlockerReason"] {
+        switch properties["Blocker Reason"] {
         case .richText(let text): return text.isEmpty ? nil : text
         case .title(let text): return text.isEmpty ? nil : text
         default: return nil
         }
     }
 
+    var startedAt: String? {
+        guard case .date(let d) = properties["Started At"] else { return nil }
+        return d?.start
+    }
+
+    var doneAt: String? {
+        guard case .date(let d) = properties["Done At"] else { return nil }
+        return d?.start
+    }
+
     var unblockAction: String? {
-        switch properties["UnblockAction"] {
+        switch properties["Unblock Action"] {
         case .richText(let text): return text.isEmpty ? nil : text
         case .title(let text): return text.isEmpty ? nil : text
         default: return nil
@@ -172,18 +192,12 @@ struct NotionPage: Decodable {
         if let v = agent { dict["agent"] = v }
         if let v = lockToken { dict["lock_token"] = v }
         if let v = lockExpires { dict["lock_expires"] = v }
+        if let v = blockerReason { dict["blocker_reason"] = v }
+        if let v = unblockAction { dict["unblock_action"] = v }
+        if let v = startedAt { dict["started_at"] = v }
+        if let v = doneAt { dict["done_at"] = v }
+        if let v = completedSubtasks { dict["completed_subtasks"] = v }
         return dict
     }
 }
 
-enum ClassOfServiceRank {
-    static func rank(for value: String?) -> Int {
-        switch value?.uppercased() {
-        case "EXPEDITE": return 1
-        case "FIXED_DATE": return 2
-        case "STANDARD": return 3
-        case "INTANGIBLE": return 4
-        default: return 3 // Default to STANDARD
-        }
-    }
-}

@@ -4,11 +4,11 @@ enum PullPolicy {
 
     /// Check if a page is eligible for selection per pull_policy.md rules.
     static func isEligible(_ page: NotionPage) -> Bool {
-        // 1. Status must be READY
-        guard page.status == "READY" else { return false }
+        // 1. Status must be Ready
+        guard page.status == TaskStatus.ready.rawValue else { return false }
 
         // 2. Lock must be empty or expired
-        if let claimedBy = page.claimedBy, claimedBy == "HUMAN" {
+        if let claimedBy = page.claimedBy, claimedBy == "Human" {
             return false // Rule 5: never auto-pull human-claimed
         }
         if let claimedBy = page.claimedBy, !claimedBy.isEmpty {
@@ -27,8 +27,8 @@ enum PullPolicy {
     /// Order: ClassOfService rank ASC, Priority DESC, last_edited_time ASC.
     static func sort(_ pages: [NotionPage]) -> [NotionPage] {
         pages.sorted { a, b in
-            let rankA = ClassOfServiceRank.rank(for: a.classOfService)
-            let rankB = ClassOfServiceRank.rank(for: b.classOfService)
+            let rankA = ClassOfService(argument: a.classOfService ?? "")?.rank ?? 3
+            let rankB = ClassOfService(argument: b.classOfService ?? "")?.rank ?? 3
             if rankA != rankB { return rankA < rankB }
 
             let prioA = a.priority ?? 0

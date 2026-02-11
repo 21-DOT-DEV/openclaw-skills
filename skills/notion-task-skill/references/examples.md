@@ -14,12 +14,17 @@ are present in every response — only populated fields are included.
 | `task_id`            | string  | ✓              | Human-readable task ID (e.g., TASK-42) |
 | `status`             | string  | ✓              | Current lifecycle status             |
 | `priority`           | number  |                | Numeric priority                     |
-| `class`              | string  |                | EXPEDITE/FIXED_DATE/STANDARD/INTANGIBLE |
-| `claimed_by`         | string  |                | AGENT or HUMAN                       |
+| `class`              | string  |                | Expedite/Fixed Date/Standard/Intangible |
+| `claimed_by`         | string  |                | Agent or Human                       |
 | `agent_run`          | string  |                | Current agent's run identifier       |
 | `agent`              | string  |                | Current agent's name                 |
 | `lock_token`         | string  |                | UUID lock token                      |
 | `lock_expires`       | string  |                | ISO 8601 lock expiry                 |
+| `started_at`         | string  |                | ISO 8601 when work began             |
+| `done_at`            | string  |                | ISO 8601 when work completed         |
+| `blocker_reason`     | string  |                | Why the task is blocked              |
+| `unblock_action`     | string  |                | What needs to happen to unblock      |
+| `completed_subtasks` | number  |                | Count of completed sub-tasks         |
 | `parent_task_id`     | string  |                | Parent task ID (subtasks only)       |
 | `reason`             | string  |                | Cancellation/block reason            |
 
@@ -75,9 +80,9 @@ ntask next
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "READY",
-    "priority": 8,
-    "class": "STANDARD"
+    "status": "Ready",
+    "priority": 2,
+    "class": "Standard"
   }
 }
 ```
@@ -111,10 +116,10 @@ ntask claim PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "IN_PROGRESS",
+    "status": "In Progress",
     "lock_token": "550e8400-e29b-41d4-a716-446655440000",
     "lock_expires": "2025-01-15T14:50:00Z",
-    "claimed_by": "AGENT",
+    "claimed_by": "Agent",
     "agent_run": "run-abc-123",
     "agent": "coding-agent-1"
   }
@@ -130,8 +135,8 @@ ntask claim PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "IN_PROGRESS",
-    "claimed_by": "AGENT",
+    "status": "In Progress",
+    "claimed_by": "Agent",
     "agent_run": "run-other-456"
   }
 }
@@ -170,7 +175,7 @@ ntask heartbeat PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "claimed_by": "AGENT",
+    "claimed_by": "Agent",
     "agent_run": "run-other-789"
   }
 }
@@ -183,8 +188,7 @@ Mark a task as done:
 ```bash
 ntask complete PROJ-42 \
   --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000" \
-  --artifacts "PR #123 merged, deployed to staging"
+  --lock-token "550e8400-e29b-41d4-a716-446655440000"
 ```
 
 ### Success
@@ -195,7 +199,7 @@ ntask complete PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "DONE",
+    "status": "Done",
     "done_at": "2025-01-15T15:05:00Z"
   }
 }
@@ -222,7 +226,7 @@ ntask block PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "BLOCKED",
+    "status": "Blocked",
     "blocker_reason": "Waiting for API credentials from vendor",
     "unblock_action": "User must provide API key in project settings",
     "next_check_at": "2025-01-16T10:00:00Z"
@@ -236,14 +240,14 @@ Create a new top-level task:
 
 ```bash
 ntask create --title "Implement auth flow" \
-  --priority 8 --class-of-service STANDARD
+  --priority 2 --class-of-service Standard
 ```
 
 Create a subtask linked to a parent:
 
 ```bash
 ntask create --title "Setup OAuth provider" \
-  --parent "TASK-99" --priority 8 --class-of-service STANDARD
+  --parent "TASK-99" --priority 2 --class-of-service Standard
 ```
 
 ### Success
@@ -254,7 +258,7 @@ ntask create --title "Setup OAuth provider" \
   "task": {
     "page_id": "new-page-id",
     "task_id": "TASK-100",
-    "status": "READY",
+    "status": "Ready",
     "parent_task_id": "TASK-99"
   }
 }
@@ -268,10 +272,10 @@ List all tasks:
 ntask list
 ```
 
-List only READY tasks:
+List only Ready tasks:
 
 ```bash
-ntask list --status READY --limit 10
+ntask list --status Ready --limit 10
 ```
 
 ### Success
@@ -283,14 +287,14 @@ ntask list --status READY --limit 10
     {
       "page_id": "abc123",
       "task_id": "PROJ-42",
-      "status": "READY",
-      "priority": 8
+      "status": "Ready",
+      "priority": 2
     },
     {
       "page_id": "def456",
       "task_id": "PROJ-43",
-      "status": "READY",
-      "priority": 5
+      "status": "Ready",
+      "priority": 1
     }
   ],
   "count": 2
@@ -313,9 +317,9 @@ ntask get PROJ-42
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "READY",
-    "priority": 8,
-    "class": "STANDARD"
+    "status": "Ready",
+    "priority": 2,
+    "class": "Standard"
   }
 }
 ```
@@ -340,12 +344,11 @@ ntask comment PROJ-42 --text "Started investigating OAuth provider options"
 
 ## review
 
-Move a task to REVIEW for human inspection:
+Move a task to Review for human inspection:
 
 ```bash
 ntask review PROJ-42 --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000" \
-  --artifacts "PR #456 ready for review"
+  --lock-token "550e8400-e29b-41d4-a716-446655440000"
 ```
 
 ### Success
@@ -356,8 +359,7 @@ ntask review PROJ-42 --run-id "run-abc-123" \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "REVIEW",
-    "artifacts": "PR #456 ready for review"
+    "status": "Review"
   }
 }
 ```
@@ -380,7 +382,7 @@ ntask cancel PROJ-42 --run-id "run-abc-123" \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "CANCELED",
+    "status": "Canceled",
     "reason": "Requirements changed, feature no longer needed"
   }
 }
@@ -391,13 +393,13 @@ ntask cancel PROJ-42 --run-id "run-abc-123" \
 Update task priority:
 
 ```bash
-ntask update PROJ-42 --priority 10
+ntask update PROJ-42 --priority 3
 ```
 
-Unblock a task (move from BLOCKED to READY):
+Unblock a task (move from Blocked to Ready):
 
 ```bash
-ntask update PROJ-42 --status READY
+ntask update PROJ-42 --status Ready
 ```
 
 ### Success
@@ -408,9 +410,9 @@ ntask update PROJ-42 --status READY
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "READY",
-    "priority": 10,
-    "class": "STANDARD"
+    "status": "Ready",
+    "priority": 3,
+    "class": "Standard"
   }
 }
 ```

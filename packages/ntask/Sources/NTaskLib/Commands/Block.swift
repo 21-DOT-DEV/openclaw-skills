@@ -49,7 +49,7 @@ struct Block: AsyncParsableCommand {
             var taskSummary: [String: Any] = [
                 "page_id": page.pageId,
                 "task_id": taskId,
-                "status": "BLOCKED",
+                "status": "Blocked",
                 "blocker_reason": reason,
                 "unblock_action": unblockAction
             ]

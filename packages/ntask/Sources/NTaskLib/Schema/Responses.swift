@@ -50,10 +50,12 @@ struct TaskSummary: Codable, Equatable {
     let agent: String?
     let lockToken: String?
     let lockExpires: String?
+    let startedAt: String?
     let doneAt: String?
     let blockerReason: String?
     let unblockAction: String?
     let nextCheckAt: String?
+    let completedSubtasks: Int?
     let parentTaskId: String?
     let reason: String?
 
@@ -68,10 +70,12 @@ struct TaskSummary: Codable, Equatable {
         case agent
         case lockToken = "lock_token"
         case lockExpires = "lock_expires"
+        case startedAt = "started_at"
         case doneAt = "done_at"
         case blockerReason = "blocker_reason"
         case unblockAction = "unblock_action"
         case nextCheckAt = "next_check_at"
+        case completedSubtasks = "completed_subtasks"
         case parentTaskId = "parent_task_id"
         case reason
     }

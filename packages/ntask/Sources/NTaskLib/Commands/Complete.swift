@@ -3,7 +3,7 @@ import Foundation
 
 struct Complete: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Mark a task as DONE and record artifacts"
+        abstract: "Mark a task as Done"
     )
 
     @Argument(help: "TaskID to complete")
@@ -14,9 +14,6 @@ struct Complete: AsyncParsableCommand {
 
     @Option(name: .long, help: "Lock token from claim")
     var lockToken: String
-
-    @Option(name: .long, help: "Artifacts description")
-    var artifacts: String
 
     func run() async throws {
         do {
@@ -34,19 +31,23 @@ struct Complete: AsyncParsableCommand {
             }
 
             // Check sub-tasks: block completion if any are incomplete
-            if let depsCount = page.dependenciesOpenCount, depsCount > 0 {
-                JSONOut.error(
-                    code: "INCOMPLETE_SUBTASKS",
-                    message: "Cannot complete: \(depsCount) sub-tasks still open",
-                    task: page.toSummary(),
-                    exitCode: ExitCodes.misconfigured
-                )
+            // dependencies = total sub-task count, completedSubtasks = Done + Canceled count
+            if let total = page.dependencies, total > 0 {
+                let completed = page.completedSubtasks ?? 0
+                if completed < total {
+                    let open = total - completed
+                    JSONOut.error(
+                        code: "INCOMPLETE_SUBTASKS",
+                        message: "Cannot complete: \(open)/\(total) sub-tasks still open",
+                        task: page.toSummary(),
+                        exitCode: ExitCodes.misconfigured
+                    )
+                }
             }
 
             let doneAt = Time.iso8601(Time.now())
             try await NotionCLI.updateForComplete(
                 pageId: page.pageId,
-                artifacts: artifacts,
                 doneAt: doneAt
             )
 
@@ -54,7 +55,7 @@ struct Complete: AsyncParsableCommand {
                 "task": [
                     "page_id": page.pageId,
                     "task_id": taskId,
-                    "status": "DONE",
+                    "status": "Done",
                     "done_at": doneAt
                 ]
             ])

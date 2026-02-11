@@ -12,11 +12,11 @@ struct Update: AsyncParsableCommand {
     @Option(name: .long, help: "New priority value")
     var priority: Int?
 
-    @Option(name: .long, help: "New class of service")
-    var classOfService: String?
+    @Option(name: .long, help: "New class of service: Expedite, Fixed Date, Standard, Intangible")
+    var classOfService: ClassOfService?
 
-    @Option(name: .long, help: "New status (cannot set to DONE — use complete)")
-    var status: String?
+    @Option(name: .long, help: "New status (cannot set to Done — use complete)")
+    var status: TaskStatus?
 
     func run() async throws {
         do {
@@ -30,39 +30,27 @@ struct Update: AsyncParsableCommand {
             }
 
             // Validate status transition
-            if let s = status?.uppercased() {
-                // These statuses require dedicated commands with lock verification
-                let commandForStatus: [String: String] = [
-                    "DONE": "complete",
-                    "IN_PROGRESS": "claim"
+            if let s = status {
+                let commandForStatus: [TaskStatus: String] = [
+                    .done: "complete",
+                    .inProgress: "claim"
                 ]
                 if let cmd = commandForStatus[s] {
                     JSONOut.error(
                         code: "MISCONFIGURED",
-                        message: "Cannot set status to \(s) via update — use the '\(cmd)' command instead",
-                        exitCode: ExitCodes.misconfigured
-                    )
-                }
-                let validStatuses = ["BACKLOG", "READY", "BLOCKED", "REVIEW", "CANCELED"]
-                if !validStatuses.contains(s) {
-                    JSONOut.error(
-                        code: "MISCONFIGURED",
-                        message: "Invalid status '\(s)'. Must be one of: \(validStatuses.joined(separator: ", "))",
+                        message: "Cannot set status to \(s.rawValue) via update — use the '\(cmd)' command instead",
                         exitCode: ExitCodes.misconfigured
                     )
                 }
             }
 
-            // Validate class of service
-            if let cos = classOfService?.uppercased() {
-                let validCos = ["EXPEDITE", "FIXED_DATE", "STANDARD", "INTANGIBLE"]
-                if !validCos.contains(cos) {
-                    JSONOut.error(
-                        code: "MISCONFIGURED",
-                        message: "Invalid class of service '\(cos)'. Must be one of: \(validCos.joined(separator: ", "))",
-                        exitCode: ExitCodes.misconfigured
-                    )
-                }
+            // Validate priority range
+            if let p = priority, !(1...3).contains(p) {
+                JSONOut.error(
+                    code: "MISCONFIGURED",
+                    message: "Priority must be 1-3, got \(p)",
+                    exitCode: ExitCodes.misconfigured
+                )
             }
 
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
@@ -73,10 +61,10 @@ struct Update: AsyncParsableCommand {
                 properties["Priority"] = ["number": p]
             }
             if let cos = classOfService {
-                properties["Class"] = ["select": ["name": cos.uppercased()]]
+                properties["Class"] = ["select": ["name": cos.rawValue]]
             }
             if let s = status {
-                properties["Status"] = ["select": ["name": s.uppercased()]]
+                properties["Status"] = ["status": ["name": s.rawValue]]
             }
 
             try await NotionCLI.updateProperties(

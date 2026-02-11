@@ -106,10 +106,8 @@ ntask heartbeat <task-id> --run-id <run-id> --lock-token <token> --lease-min 20
 ### 5a. Complete (work succeeded)
 
 ```bash
-ntask complete <task-id> --run-id <run-id> --lock-token <token> --artifacts "<description>"
+ntask complete <task-id> --run-id <run-id> --lock-token <token>
 ```
-
-The `artifacts` string should describe what was produced (e.g., "PR #123 merged").
 
 After completion, loop back to step 2 (`next`).
 
@@ -155,7 +153,7 @@ this automatically.
 ## Idempotency
 
 If a task triggers external side effects (deployments, API calls, emails), the
-agent **should** record an idempotency key in the task's Artifacts or Notes field
+agent **should** record an idempotency key in a task comment
 before performing the action. Use the `Agent Run` value as the key. This prevents
 duplicate side effects if the agent retries or another agent picks up the same
 task.
@@ -176,10 +174,10 @@ ntask get PROJ-42
 
 # 2. Create subtasks with --parent
 ntask create --title "Design auth schema" \
-  --parent "TASK-42" --priority 8
+  --parent "TASK-42" --priority 2
 
 ntask create --title "Implement auth endpoints" \
-  --parent "TASK-42" --priority 7
+  --parent "TASK-42" --priority 2
 
 # 3. Work subtasks via the normal claim→work→complete loop
 # 4. Parent's Dependencies rollup tracks completion
@@ -191,9 +189,9 @@ ntask create --title "Implement auth endpoints" \
 - Task requires sequential phases (design → implement → test)
 
 **Other useful commands during work:**
-- `ntask list --status IN_PROGRESS` — see what's in flight
+- `ntask list --status 'In Progress'` — see what's in flight
 - `ntask comment PROJ-42 --text "Progress update: ..."` — leave audit trail
-- `ntask update PROJ-42 --priority 10` — re-prioritize if needed
+- `ntask update PROJ-42 --priority 3` — re-prioritize if needed
 - `ntask review PROJ-42 ...` — request human review instead of completing
 - `ntask cancel PROJ-42 ...` — abandon if requirements changed
 
@@ -202,8 +200,7 @@ ntask create --title "Implement auth endpoints" \
 1. **Never retry a CONFLICT.** Always get a fresh task via `next`.
 2. **Never continue work after LOST_LOCK.** Another agent may have claimed the task.
 3. **Always heartbeat during work.** A missed heartbeat lets other agents steal the lock.
-4. **Always include artifacts on complete or review.** This is the audit trail.
-5. **Always include reason + unblock_action on block.** This tells humans what to fix.
-6. **Always include reason on cancel.** Explains why work was abandoned.
-7. **Decompose complex tasks.** Use `create --parent` to break work into subtasks.
-8. **Record idempotency keys for side effects.** Write `Agent Run` value to Artifacts/Notes before triggering external actions.
+4. **Always include reason + unblock_action on block.** This tells humans what to fix.
+5. **Always include reason on cancel.** Explains why work was abandoned.
+6. **Decompose complex tasks.** Use `create --parent` to break work into subtasks.
+7. **Record idempotency keys for side effects.** Write `Agent Run` value to task comments before triggering external actions.

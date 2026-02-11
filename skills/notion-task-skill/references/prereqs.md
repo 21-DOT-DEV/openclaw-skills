@@ -95,18 +95,19 @@ keychain credentials are not available.
 | Property               | Type      | Select Values (if applicable)                                          |
 |------------------------|-----------|------------------------------------------------------------------------|
 | ID                     | Unique ID | Auto-generated (e.g., TASK-42)                                         |
-| Status                 | Select    | BACKLOG, READY, IN_PROGRESS, BLOCKED, REVIEW, DONE, CANCELED          |
-| Priority               | Number    | —                                                                      |
-| Class                  | Select    | EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE                            |
-| Claimed By             | Select    | AGENT, HUMAN                                                           |
+| Status                 | Status    | Backlog, Ready, In Progress, Blocked, Review, Done, Canceled           |
+| Priority               | Number    | 1–3 (higher = more urgent)                                             |
+| Class                  | Select    | Expedite, Fixed Date, Standard, Intangible                             |
+| Claimed By             | Select    | Agent, Human                                                           |
 | Agent Run              | Text      | —                                                                      |
 | Agent                  | Select    | Agent name/identifier                                                  |
 | Lock Token             | Text      | —                                                                      |
 | Lock Expires           | Date      | —                                                                      |
-| Dependencies           | Rollup    | Counts open sub-tasks; parent blocked from completion when > 0         |
+| Dependencies           | Rollup    | Counts all sub-tasks (total count)                                     |
+| Completed Sub-tasks    | Rollup    | Counts sub-tasks in Complete group (Done + Canceled)                   |
 
 See [schema.md](schema.md) for the full property reference including optional
-fields (Artifacts, BlockerReason, StartedAt, DoneAt, etc.).
+fields (Blocker Reason, Started At, Done At, etc.).
 
 ### Path B: Connect an Existing Database
 
@@ -114,15 +115,16 @@ If you already have a Notion task database, verify it has the required
 properties. Open the database and check each one:
 
 - [ ] **ID** — Unique ID property (auto-generated, e.g., TASK-42)
-- [ ] **Status** — Select with values: BACKLOG, READY, IN_PROGRESS, BLOCKED, REVIEW, DONE, CANCELED
-- [ ] **Priority** — Number (higher = more urgent)
-- [ ] **Class** — Select with values: EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE
-- [ ] **Claimed By** — Select with values: AGENT, HUMAN
+- [ ] **Status** — Native status with values: Backlog, Ready, In Progress, Blocked, Review, Done, Canceled
+- [ ] **Priority** — Number 1–3 (higher = more urgent)
+- [ ] **Class** — Select with values: Expedite, Fixed Date, Standard, Intangible
+- [ ] **Claimed By** — Select with values: Agent, Human
 - [ ] **Agent Run** — Text (can be empty initially)
 - [ ] **Agent** — Select (agent name/identifier, can be empty initially)
 - [ ] **Lock Token** — Text (can be empty initially)
 - [ ] **Lock Expires** — Date (can be empty initially)
-- [ ] **Dependencies** — Rollup on Sub-tasks relation (counts open sub-tasks)
+- [ ] **Dependencies** — Rollup on Sub-tasks relation (counts all sub-tasks)
+- [ ] **Completed Sub-tasks** — Rollup on Sub-tasks relation (count_per_group, Complete group)
 
 Add any missing properties. Property names must match **exactly** (case-sensitive).
 

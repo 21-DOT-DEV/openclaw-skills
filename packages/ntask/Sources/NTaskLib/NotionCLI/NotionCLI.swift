@@ -91,7 +91,7 @@ enum NotionCLI {
         let dbId = try databaseId
         let filter = try buildFilterJSON([
             "property": "Status",
-            "select": ["equals": "READY"]
+            "status": ["equals": "Ready"]
         ])
         let result = try await ProcessRunner.run(
             executable: "notion",
@@ -181,13 +181,11 @@ enum NotionCLI {
     /// Update page properties to mark task as DONE.
     static func updateForComplete(
         pageId: String,
-        artifacts: String,
         doneAt: String
     ) async throws {
         let properties: [String: Any] = [
-            "Status": ["select": ["name": "DONE"]],
-            "Artifacts": ["rich_text": [["text": ["content": artifacts]]]],
-            "DoneAt": ["date": ["start": doneAt]],
+            "Status": ["status": ["name": "Done"]],
+            "Done At": ["date": ["start": doneAt]],
             "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
             "Agent": ["select": NSNull()],
@@ -205,9 +203,9 @@ enum NotionCLI {
         nextCheck: String?
     ) async throws {
         var properties: [String: Any] = [
-            "Status": ["select": ["name": "BLOCKED"]],
-            "BlockerReason": ["rich_text": [["text": ["content": reason]]]],
-            "UnblockAction": ["rich_text": [["text": ["content": unblockAction]]]],
+            "Status": ["status": ["name": "Blocked"]],
+            "Blocker Reason": ["rich_text": [["text": ["content": reason]]]],
+            "Unblock Action": ["rich_text": [["text": ["content": unblockAction]]]],
             "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
             "Agent": ["select": NSNull()],
@@ -215,7 +213,7 @@ enum NotionCLI {
             "Lock Expires": ["date": NSNull()]
         ]
         if let nextCheck {
-            properties["NextCheckAt"] = ["date": ["start": nextCheck]]
+            properties["Next Check At"] = ["date": ["start": nextCheck]]
         }
         try await updatePage(pageId: pageId, properties: properties)
     }
@@ -253,7 +251,7 @@ enum NotionCLI {
         if let status {
             let filter = try buildFilterJSON([
                 "property": "Status",
-                "select": ["equals": status]
+                "status": ["equals": status]
             ])
             arguments += ["--filter", filter]
         }
@@ -289,20 +287,16 @@ enum NotionCLI {
 
     /// Update page properties to move task to REVIEW.
     static func updateForReview(
-        pageId: String,
-        artifacts: String?
+        pageId: String
     ) async throws {
-        var properties: [String: Any] = [
-            "Status": ["select": ["name": "REVIEW"]],
+        let properties: [String: Any] = [
+            "Status": ["status": ["name": "Review"]],
             "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
             "Agent": ["select": NSNull()],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
         ]
-        if let artifacts {
-            properties["Artifacts"] = ["rich_text": [["text": ["content": artifacts]]]]
-        }
         try await updatePage(pageId: pageId, properties: properties)
     }
 
@@ -312,8 +306,8 @@ enum NotionCLI {
         reason: String
     ) async throws {
         let properties: [String: Any] = [
-            "Status": ["select": ["name": "CANCELED"]],
-            "BlockerReason": ["rich_text": [["text": ["content": reason]]]],
+            "Status": ["status": ["name": "Canceled"]],
+            "Blocker Reason": ["rich_text": [["text": ["content": reason]]]],
             "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
             "Agent": ["select": NSNull()],
@@ -337,13 +331,13 @@ enum NotionCLI {
         lockedUntil: String
     ) -> [String: Any] {
         [
-            "Status": ["select": ["name": "IN_PROGRESS"]],
-            "Claimed By": ["select": ["name": "AGENT"]],
+            "Status": ["status": ["name": "In Progress"]],
+            "Claimed By": ["select": ["name": "Agent"]],
             "Agent Run": ["rich_text": [["text": ["content": runId]]]],
             "Agent": ["select": ["name": agentName]],
             "Lock Token": ["rich_text": [["text": ["content": lockToken]]]],
             "Lock Expires": ["date": ["start": lockedUntil]],
-            "StartedAt": ["date": ["start": Time.iso8601(Time.now())]]
+            "Started At": ["date": ["start": Time.iso8601(Time.now())]]
         ]
     }
 

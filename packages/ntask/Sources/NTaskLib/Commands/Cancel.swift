@@ -42,7 +42,7 @@ struct Cancel: AsyncParsableCommand {
                 "task": [
                     "page_id": page.pageId,
                     "task_id": taskId,
-                    "status": "CANCELED",
+                    "status": "Canceled",
                     "reason": reason
                 ]
             ])

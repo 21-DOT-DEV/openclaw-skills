@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.2.1] - 2026-02-10
+
+### Breaking Changes
+- **Status property type**: `select` → native `status` (Notion's built-in status type)
+- **Status values**: UPPER_CASE → Title Case (e.g., `READY` → `Ready`, `IN_PROGRESS` → `In Progress`)
+- **Class of Service values**: UPPER_CASE → Title Case (e.g., `EXPEDITE` → `Expedite`, `FIXED_DATE` → `Fixed Date`)
+- **Claimed By values**: UPPER_CASE → Title Case (`AGENT` → `Agent`, `HUMAN` → `Human`)
+- **Priority scale**: 1–10 → 1–3 (default: 2)
+- **Removed CLI flags**: `--artifacts` removed from `complete` and `review` commands
+- **Removed DB property**: `Artifacts` removed
+- **Property renames**: `BlockerReason` → `Blocker Reason`, `UnblockAction` → `Unblock Action`,
+  `StartedAt` → `Started At`, `DoneAt` → `Done At`, `NextCheckAt` → `Next Check At`
+
+### Added
+- `TaskStatus` enum with `ExpressibleByArgument` — case-insensitive status input
+  (accepts `ready`, `READY`, or `Ready`)
+- `ClassOfService` enum with `ExpressibleByArgument` — case-insensitive class input
+- New output fields: `started_at`, `completed_subtasks` in task summaries
+- `Completed Sub-tasks` rollup accessor for two-rollup completion guard
+- Completion guard now compares `completedSubtasks` vs `dependencies` (total vs completed)
+
+### Changed
+- `updateForComplete` signature: removed `artifacts` parameter
+- `updateForReview` signature: removed `artifacts` parameter
+- All status filters use native `status` type instead of `select`
+
 ## [0.2.0] - 2026-02-08
 
 ### Breaking Changes

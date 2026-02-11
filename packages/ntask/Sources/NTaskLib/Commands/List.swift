@@ -6,8 +6,8 @@ struct List: AsyncParsableCommand {
         abstract: "List tasks with optional status filter"
     )
 
-    @Option(name: .long, help: "Filter by status (e.g., READY, IN_PROGRESS, BLOCKED)")
-    var status: String?
+    @Option(name: .long, help: "Filter by status (e.g., Ready, In Progress, Blocked)")
+    var status: TaskStatus?
 
     @Option(name: .long, help: "Maximum number of results")
     var limit: Int = 50
@@ -15,7 +15,7 @@ struct List: AsyncParsableCommand {
     func run() async throws {
         do {
             let pages = try await NotionCLI.queryTasks(
-                status: status?.uppercased(),
+                status: status?.rawValue,
                 limit: limit
             )
             let summaries = pages.map { $0.toSummary() }

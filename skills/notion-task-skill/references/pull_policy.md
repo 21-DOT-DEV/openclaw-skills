@@ -10,8 +10,8 @@ must make the same selection.
 
 A task is eligible for selection when **all** of the following are true:
 
-1. **Status** equals `READY`
-2. **Claimed By** is NOT `HUMAN` (human-claimed tasks are never auto-pulled,
+1. **Status** equals `Ready`
+2. **Claimed By** is NOT `Human` (human-claimed tasks are never auto-pulled,
    regardless of `Lock Expires`)
 3. **Lock is empty or expired:**
    - `Claimed By` is empty, **OR**
@@ -19,7 +19,7 @@ A task is eligible for selection when **all** of the following are true:
 That's it — no sub-task or dependency checks at claim time. Sub-task completion
 is enforced at `done` time via the Dependencies rollup.
 
-**Edge case — inconsistent state:** If `Claimed By` is `AGENT` but `Lock Expires` is
+**Edge case — inconsistent state:** If `Claimed By` is `Agent` but `Lock Expires` is
 empty, the task is treated as claimable (expired lock). This can happen if a
 previous operation failed mid-update. The claiming agent should note this in the
 task's comments for auditability.
@@ -29,8 +29,8 @@ task's comments for auditability.
 Eligible tasks are sorted by the following keys, in order:
 
 1. **Class rank** (ascending — lower rank = higher priority):
-   - EXPEDITE (1) > FIXED_DATE (2) > STANDARD (3) > INTANGIBLE (4)
-   - Tasks missing Class are treated as STANDARD (rank 3)
+   - Expedite (1) > Fixed Date (2) > Standard (3) > Intangible (4)
+   - Tasks missing Class are treated as Standard (rank 3)
 2. **Priority** (descending — higher number = more urgent)
 3. **Last edited time** (ascending — oldest-edited first, to prevent starvation)
 
@@ -42,13 +42,13 @@ The **first** task after sorting is returned by `ntask next`.
 
 1. Generate a UUID v4 `Lock Token`.
 2. Set the following properties atomically:
-   - `Status` → `IN_PROGRESS`
-   - `Claimed By` → `AGENT`
+   - `Status` → `In Progress`
+   - `Claimed By` → `Agent`
    - `Agent Run` → provided run ID
    - `Agent` → provided agent name
    - `Lock Token` → generated token
    - `Lock Expires` → now + lease duration (default 20 minutes)
-   - `StartedAt` → now (if property exists)
+   - `Started At` → now (if property exists)
 3. **Verify the claim** by re-reading the page immediately after update.
 4. If the re-read shows a **different** `Lock Token`, return `CONFLICT`.
    Another agent claimed the task first.
@@ -66,9 +66,8 @@ The **first** task after sorting is returned by `ntask next`.
 1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
-   - `Status` → `DONE`
-   - `Artifacts` → provided artifacts string
-   - `DoneAt` → now (if property exists)
+   - `Status` → `Done`
+   - `Done At` → now (if property exists)
    - Clear lock fields (set to null/empty):
      - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
@@ -82,10 +81,10 @@ The **first** task after sorting is returned by `ntask next`.
 1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
-   - `Status` → `BLOCKED`
-   - `BlockerReason` → provided reason
-   - `UnblockAction` → provided unblock action
-   - `NextCheckAt` → provided ISO 8601 timestamp (optional)
+   - `Status` → `Blocked`
+   - `Blocker Reason` → provided reason
+   - `Unblock Action` → provided unblock action
+   - `Next Check At` → provided ISO 8601 timestamp (optional)
    - Clear lock fields (set to null/empty):
      - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
@@ -99,8 +98,7 @@ The **first** task after sorting is returned by `ntask next`.
 1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
-   - `Status` → `REVIEW`
-   - `Artifacts` → provided artifacts string (optional)
+   - `Status` → `Review`
    - Clear lock fields (set to null/empty):
      - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
@@ -114,8 +112,8 @@ The **first** task after sorting is returned by `ntask next`.
 1. Read the page and verify `Lock Token` matches the provided token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
-   - `Status` → `CANCELED`
-   - `BlockerReason` → provided reason
+   - `Status` → `Canceled`
+   - `Blocker Reason` → provided reason
    - Clear lock fields (set to null/empty):
      - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)

@@ -45,7 +45,7 @@
             "task": {
               "page_id": "abc-123",
               "task_id": "TASK-42",
-              "status": "READY",
+              "status": "Ready",
               "priority": 1
             }
           },
@@ -86,7 +86,7 @@
             "ok": true,
             "task": {
               "page_id": "abc-123",
-              "status": "IN_PROGRESS",
+              "status": "In Progress",
               "lock_token": "uuid-lock-token"
             }
           },
@@ -121,7 +121,7 @@
           "intent": "Extend lock on a claimed task",
           "command": "ntask heartbeat --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "IN_PROGRESS" } },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "In Progress" } },
           "exit_code": 0
         }
       ]
@@ -129,7 +129,7 @@
     {
       "name": "complete",
       "binary": "ntask",
-      "description": "Mark a task as DONE and record artifacts",
+      "description": "Mark a task as Done",
       "parameters": {
         "type": "object",
         "properties": {
@@ -141,7 +141,7 @@
       },
       "output_format": "json",
       "exit_codes": {
-        "0": "Success — task marked DONE",
+        "0": "Success — task marked Done",
         "3": "INCOMPLETE_SUBTASKS — open sub-tasks remain",
         "4": "LOST_LOCK",
         "5": "API_ERROR"
@@ -156,7 +156,7 @@
           "intent": "Mark a task as completed",
           "command": "ntask complete --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "DONE" } },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Done" } },
           "exit_code": 0
         }
       ]
@@ -164,7 +164,7 @@
     {
       "name": "block",
       "binary": "ntask",
-      "description": "Mark a task as BLOCKED with reason",
+      "description": "Mark a task as Blocked with reason",
       "parameters": {
         "type": "object",
         "properties": {
@@ -191,7 +191,7 @@
           "intent": "Block a task with a reason",
           "command": "ntask block --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token --reason \"Waiting on API access\"",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "BLOCKED", "reason": "Waiting on API access" } },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Blocked", "reason": "Waiting on API access" } },
           "exit_code": 0
         }
       ]
@@ -230,7 +230,7 @@
             "task": {
               "page_id": "new-456",
               "task_id": "TASK-99",
-              "status": "READY",
+              "status": "Ready",
               "priority": 2
             }
           },
@@ -245,7 +245,7 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "--status": { "type": "string", "description": "Filter by status (READY, IN_PROGRESS, DONE, BLOCKED, etc.)" }
+          "--status": { "type": "string", "description": "Filter by status (Ready, In Progress, Done, Blocked, etc.)" }
         }
       },
       "output_format": "json",
@@ -260,12 +260,12 @@
       "examples": [
         {
           "intent": "List all tasks with a status filter",
-          "command": "ntask list --status IN_PROGRESS",
+          "command": "ntask list --status 'In Progress'",
           "output_format": "json",
           "example_output": {
             "ok": true,
             "tasks": [
-              { "page_id": "abc-123", "task_id": "TASK-42", "status": "IN_PROGRESS" }
+              { "page_id": "abc-123", "task_id": "TASK-42", "status": "In Progress" }
             ]
           },
           "exit_code": 0
@@ -302,9 +302,9 @@
             "task": {
               "page_id": "abc-123",
               "task_id": "TASK-42",
-              "status": "IN_PROGRESS",
+              "status": "In Progress",
               "priority": 1,
-              "class": "STANDARD"
+              "class": "Standard"
             }
           },
           "exit_code": 0
@@ -348,7 +348,7 @@
     {
       "name": "review",
       "binary": "ntask",
-      "description": "Move task to REVIEW for human inspection",
+      "description": "Move task to Review for human inspection",
       "parameters": {
         "type": "object",
         "properties": {
@@ -360,20 +360,20 @@
       },
       "output_format": "json",
       "exit_codes": {
-        "0": "Success — task moved to REVIEW",
+        "0": "Success — task moved to Review",
         "4": "LOST_LOCK"
       },
       "destructive": true,
       "idempotent": false,
       "requires_confirmation": true,
-      "confirmation_message": "Move task to REVIEW for human inspection?",
+      "confirmation_message": "Move task to Review for human inspection?",
       "capability": "lifecycle",
       "examples": [
         {
           "intent": "Submit task for human review",
           "command": "ntask review --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "REVIEW" } },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Review" } },
           "exit_code": 0
         }
       ]
@@ -407,7 +407,7 @@
           "intent": "Cancel a task that is no longer needed",
           "command": "ntask cancel --page-id abc-123 --run-id run-001 --lock-token uuid-lock-token --reason \"Duplicate of TASK-40\"",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "CANCELLED" } },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Canceled" } },
           "exit_code": 0
         }
       ]

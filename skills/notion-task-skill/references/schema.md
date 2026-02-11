@@ -7,7 +7,7 @@ to formats ntask can work with.
 
 ## Design Decisions
 
-- **Single status property**: One `select` Status (no dual-status pattern —
+- **Single status property**: One native `status` property (no dual-status pattern —
   community consensus says dual-status causes drift)
 - **PARA via relations**: Project, Resources, and Sub-tasks relations preserve
   PARA alignment without encoding it into status values
@@ -40,28 +40,29 @@ These existing properties must change type. Notion API has no in-place type
 conversion — create the new property, migrate data, rename old to
 `_property_old` as rollback safety.
 
-### Status: native `status` → `select`
+### Status: native `status` (preserved)
 
-| Current (native status) | → New (select) | Rationale |
+The Status property uses Notion's native `status` type with three groups:
+
+| Status | Group | Description |
 |---|---|---|
-| Inbox | BACKLOG | Not yet triaged/ready |
-| Planning | BACKLOG | Still being scoped |
-| In Progress | IN_PROGRESS | Direct mapping |
-| Paused | BLOCKED | Stalled work |
-| Done | DONE | Direct mapping |
-| Canceled | CANCELED | Direct mapping |
-| *(new)* | READY | Triaged and actionable, not yet claimed |
-| *(new)* | REVIEW | Work done, awaiting review |
+| Backlog | To-do | Not yet triaged/ready |
+| Ready | To-do | Triaged and actionable, not yet claimed |
+| In Progress | In Progress | Active work |
+| Blocked | In Progress | Stalled work |
+| Review | In Progress | Work done, awaiting review |
+| Done | Complete | Direct mapping |
+| Canceled | Complete | Direct mapping |
 
 ### Priority: `select` → `number`
 
 | Current (select) | → New (number) |
 |---|---|
 | Low | 1 |
-| Medium | 5 |
-| High | 9 |
+| Medium | 2 |
+| High | 3 |
 
-Higher number = more urgent. Scale 1–10 allows fine-grained ordering.
+Higher number = more urgent. Scale 1–3.
 
 ## Added Properties (7 new)
 
@@ -70,8 +71,8 @@ These properties are added for agent lifecycle management:
 | Property | Type | Description |
 |---|---|---|
 | ID | `unique_id` | Auto-increment, customizable prefix, URL-accessible. Read-only via API (Notion generates). |
-| Class | Select | Kanban class-of-service: EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE |
-| Claimed By | Select | Who holds the lock: `AGENT` or `HUMAN` |
+| Class | Select | Kanban class-of-service: Expedite, Fixed Date, Standard, Intangible |
+| Claimed By | Select | Who holds the lock: `Agent` or `Human` |
 | Agent | Select | Name/identifier of the agent holding the lock |
 | Agent Run | Rich Text | UUID for the agent's current run (no better Notion type for UUIDs) |
 | Lock Token | Rich Text | UUID for lock verification (no better Notion type for UUIDs) |
@@ -79,24 +80,28 @@ These properties are added for agent lifecycle management:
 
 ### Dependencies (Rollup)
 
-Add a Rollup property on the Sub-tasks relation that counts sub-tasks whose
-Status is not DONE or CANCELED. Completion is blocked when this value is > 0.
+Rollup on the Sub-tasks relation that counts all sub-tasks (total count).
+
+### Completed Sub-tasks (Rollup)
+
+Rollup on the Sub-tasks relation using count_per_group for the Complete group
+(Done + Canceled). Completion is blocked when `Completed Sub-tasks < Dependencies`.
 
 ### Class — Allowed Select Options
 
 | Value | Rank | Meaning |
 |---|---|---|
-| EXPEDITE | 1 | Drop everything; highest urgency |
-| FIXED_DATE | 2 | Has a hard deadline |
-| STANDARD | 3 | Normal priority work |
-| INTANGIBLE | 4 | Technical debt, improvements, nice-to-have |
+| Expedite | 1 | Drop everything; highest urgency |
+| Fixed Date | 2 | Has a hard deadline |
+| Standard | 3 | Normal priority work |
+| Intangible | 4 | Technical debt, improvements, nice-to-have |
 
 ### Claimed By — Allowed Select Options
 
 | Value | Meaning |
 |---|---|
-| AGENT | Claimed by an automated agent |
-| HUMAN | Claimed by a human operator |
+| Agent | Claimed by an automated agent |
+| Human | Claimed by a human operator |
 
 ## Optional Properties
 
@@ -104,12 +109,11 @@ These improve observability and auditability but are not required:
 
 | Property | Type | Description |
 |---|---|---|
-| Artifacts | Rich Text | Links/references to work products |
-| BlockerReason | Text | Why the task is blocked |
-| UnblockAction | Text | What needs to happen to unblock |
-| NextCheckAt | Date | When to re-check a blocked task |
-| StartedAt | Date | When work began (set on claim) |
-| DoneAt | Date | When work completed (set on complete) |
+| Blocker Reason | Text | Why the task is blocked |
+| Unblock Action | Text | What needs to happen to unblock |
+| Next Check At | Date | When to re-check a blocked task |
+| Started At | Date | When work began (set on claim) |
+| Done At | Date | When work completed (set on complete) |
 | ClassRank | Number | Explicit sort rank (1–4). If present, used instead of deriving from Class select. |
 
 ## Property Refinements (from Research)
@@ -154,12 +158,12 @@ Migration plan is tracked separately outside this repository.
 | PARA Category | How It Maps |
 |---|---|
 | **Projects** | `Project` relation → Projects DB |
-| **Areas** | Ongoing tasks in IN_PROGRESS / BLOCKED |
-| **Resources** | `Resources` relation → Resources DB; DONE tasks with artifacts |
-| **Archive** | DONE / CANCELED status values |
+| **Areas** | Ongoing tasks in In Progress / Blocked |
+| **Resources** | `Resources` relation → Resources DB; Done tasks with work products |
+| **Archive** | Done / Canceled status values |
 
 ## Open Questions
 
 - **`unique_id` prefix**: What prefix for auto-generated IDs? (e.g., `TASK-`, project-specific)
-- **Priority scale**: Confirm 1–10 with Low=1, Medium=5, High=9
-- **Optional properties**: Which optional properties (BlockerReason, StartedAt, DoneAt, etc.) to add in Phase 1 vs defer
+- **Priority scale**: Confirmed 1–3 with Low=1, Medium=2, High=3
+- **Optional properties**: Blocker Reason, Started At, Done At added; Artifacts removed

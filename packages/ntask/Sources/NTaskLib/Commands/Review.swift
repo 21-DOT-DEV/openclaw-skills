@@ -15,9 +15,6 @@ struct Review: AsyncParsableCommand {
     @Option(name: .long, help: "Lock token from claim")
     var lockToken: String
 
-    @Option(name: .long, help: "Artifacts description for review")
-    var artifacts: String?
-
     func run() async throws {
         do {
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
@@ -34,20 +31,14 @@ struct Review: AsyncParsableCommand {
             }
 
             try await NotionCLI.updateForReview(
-                pageId: page.pageId,
-                artifacts: artifacts
+                pageId: page.pageId
             )
 
-            var taskSummary: [String: Any] = [
+            JSONOut.success(["task": [
                 "page_id": page.pageId,
                 "task_id": taskId,
-                "status": "REVIEW"
-            ]
-            if let a = artifacts {
-                taskSummary["artifacts"] = a
-            }
-
-            JSONOut.success(["task": taskSummary])
+                "status": "Review"
+            ]])
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

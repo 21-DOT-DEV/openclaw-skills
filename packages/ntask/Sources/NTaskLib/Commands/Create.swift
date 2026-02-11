@@ -9,36 +9,34 @@ struct Create: AsyncParsableCommand {
     @Option(name: .long, help: "Task title")
     var title: String
 
-    @Option(name: .long, help: "Numeric priority (higher = more urgent)")
-    var priority: Int = 5
+    @Option(name: .long, help: "Numeric priority 1-3 (higher = more urgent)")
+    var priority: Int = 2
 
-    @Option(name: .long, help: "Class of service: EXPEDITE, FIXED_DATE, STANDARD, INTANGIBLE")
-    var classOfService: String = "STANDARD"
+    @Option(name: .long, help: "Class of service: Expedite, Fixed Date, Standard, Intangible")
+    var classOfService: ClassOfService = .standard
 
     @Option(name: .long, help: "Parent TaskID to create a subtask under")
     var parent: String?
 
-    @Option(name: .long, help: "Initial status: BACKLOG or READY")
-    var status: String = "READY"
+    @Option(name: .long, help: "Initial status: Backlog or Ready")
+    var status: TaskStatus = .ready
 
     func run() async throws {
         do {
             // Validate status
-            let validStatuses = ["BACKLOG", "READY"]
-            guard validStatuses.contains(status.uppercased()) else {
+            guard status == .backlog || status == .ready else {
                 JSONOut.error(
                     code: "MISCONFIGURED",
-                    message: "Initial status must be BACKLOG or READY, got '\(status)'",
+                    message: "Initial status must be Backlog or Ready, got '\(status.rawValue)'",
                     exitCode: ExitCodes.misconfigured
                 )
             }
 
-            // Validate class of service
-            let validCos = ["EXPEDITE", "FIXED_DATE", "STANDARD", "INTANGIBLE"]
-            guard validCos.contains(classOfService.uppercased()) else {
+            // Validate priority range
+            guard (1...3).contains(priority) else {
                 JSONOut.error(
                     code: "MISCONFIGURED",
-                    message: "Class of service must be one of: \(validCos.joined(separator: ", "))",
+                    message: "Priority must be 1-3, got \(priority)",
                     exitCode: ExitCodes.misconfigured
                 )
             }
@@ -46,9 +44,9 @@ struct Create: AsyncParsableCommand {
             // Build properties
             let properties: [String: Any] = [
                 "title": ["title": [["text": ["content": title]]]],
-                "Status": ["select": ["name": status.uppercased()]],
+                "Status": ["status": ["name": status.rawValue]],
                 "Priority": ["number": priority],
-                "Class": ["select": ["name": classOfService.uppercased()]]
+                "Class": ["select": ["name": classOfService.rawValue]]
             ]
 
             // If parent specified, validate it exists before creating

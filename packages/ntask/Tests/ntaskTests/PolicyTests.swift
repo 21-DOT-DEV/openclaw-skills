@@ -9,9 +9,9 @@ struct PullPolicySortTests {
     private func makePage(
         pageId: String = "page-1",
         taskId: String = "TASK-1",
-        status: String = "READY",
-        priority: Int = 5,
-        classOfService: String = "STANDARD",
+        status: String = "Ready",
+        priority: Int = 2,
+        classOfService: String = "Standard",
         claimedBy: String? = nil,
         lockToken: String? = nil,
         lockExpires: String? = nil,
@@ -19,7 +19,7 @@ struct PullPolicySortTests {
     ) -> NotionPage {
         var props: [String: NotionPropertyValue] = [
             "ID": .uniqueId(NotionUniqueId(prefix: "TASK", number: 1)),
-            "Status": .select(NotionSelect(name: status)),
+            "Status": .status(NotionSelect(name: status)),
             "Priority": .number(Double(priority)),
             "Class": .select(NotionSelect(name: classOfService))
         ]
@@ -37,37 +37,37 @@ struct PullPolicySortTests {
 
     // MARK: - ClassOfService Rank Tests
 
-    @Test("EXPEDITE ranks highest (1)")
+    @Test("Expedite ranks highest (1)")
     func expediteRank() {
-        #expect(ClassOfServiceRank.rank(for: "EXPEDITE") == 1)
+        #expect(ClassOfService(argument: "Expedite")?.rank == 1)
     }
 
-    @Test("FIXED_DATE ranks second (2)")
+    @Test("Fixed Date ranks second (2)")
     func fixedDateRank() {
-        #expect(ClassOfServiceRank.rank(for: "FIXED_DATE") == 2)
+        #expect(ClassOfService(argument: "Fixed Date")?.rank == 2)
     }
 
-    @Test("STANDARD ranks third (3)")
+    @Test("Standard ranks third (3)")
     func standardRank() {
-        #expect(ClassOfServiceRank.rank(for: "STANDARD") == 3)
+        #expect(ClassOfService(argument: "Standard")?.rank == 3)
     }
 
-    @Test("INTANGIBLE ranks lowest (4)")
+    @Test("Intangible ranks lowest (4)")
     func intangibleRank() {
-        #expect(ClassOfServiceRank.rank(for: "INTANGIBLE") == 4)
+        #expect(ClassOfService(argument: "Intangible")?.rank == 4)
     }
 
-    @Test("nil defaults to STANDARD rank (3)")
+    @Test("nil defaults to Standard rank (3)")
     func nilDefaultsToStandard() {
-        #expect(ClassOfServiceRank.rank(for: nil) == 3)
+        #expect(ClassOfService(argument: "")?.rank ?? 3 == 3)
     }
 
     // MARK: - Sort Order Tests
 
-    @Test("Sort by ClassOfService: EXPEDITE before STANDARD")
+    @Test("Sort by ClassOfService: Expedite before Standard")
     func sortByClassOfService() {
-        let expedite = makePage(pageId: "p1", classOfService: "EXPEDITE")
-        let standard = makePage(pageId: "p2", classOfService: "STANDARD")
+        let expedite = makePage(pageId: "p1", classOfService: "Expedite")
+        let standard = makePage(pageId: "p2", classOfService: "Standard")
         let sorted = PullPolicy.sort([standard, expedite])
         #expect(sorted[0].pageId == "p1")
         #expect(sorted[1].pageId == "p2")
@@ -93,22 +93,22 @@ struct PullPolicySortTests {
 
     @Test("Full deterministic sort: ClassOfService > Priority > LastEdited")
     func fullDeterministicSort() {
-        let a = makePage(pageId: "a", priority: 5, classOfService: "EXPEDITE",
+        let a = makePage(pageId: "a", priority: 2, classOfService: "Expedite",
                          lastEditedTime: "2025-01-03T00:00:00Z")
-        let b = makePage(pageId: "b", priority: 10, classOfService: "STANDARD",
+        let b = makePage(pageId: "b", priority: 3, classOfService: "Standard",
                          lastEditedTime: "2025-01-01T00:00:00Z")
-        let c = makePage(pageId: "c", priority: 5, classOfService: "EXPEDITE",
+        let c = makePage(pageId: "c", priority: 2, classOfService: "Expedite",
                          lastEditedTime: "2025-01-01T00:00:00Z")
         let sorted = PullPolicy.sort([b, a, c])
-        // EXPEDITE tasks first, then by priority desc, then by last edited asc
-        #expect(sorted[0].pageId == "c") // EXPEDITE, prio 5, older
-        #expect(sorted[1].pageId == "a") // EXPEDITE, prio 5, newer
-        #expect(sorted[2].pageId == "b") // STANDARD, prio 10
+        // Expedite tasks first, then by priority desc, then by last edited asc
+        #expect(sorted[0].pageId == "c") // Expedite, prio 2, older
+        #expect(sorted[1].pageId == "a") // Expedite, prio 2, newer
+        #expect(sorted[2].pageId == "b") // Standard, prio 3
     }
 
     // MARK: - Eligibility Tests
 
-    @Test("Eligible: READY, no claim, lock empty")
+    @Test("Eligible: Ready, no claim, lock empty")
     func eligibleTask() {
         let page = makePage()
         #expect(PullPolicy.isEligible(page) == true)
@@ -116,27 +116,27 @@ struct PullPolicySortTests {
 
     @Test("Not eligible: wrong status")
     func notEligibleWrongStatus() {
-        let page = makePage(status: "IN_PROGRESS")
+        let page = makePage(status: "In Progress")
         #expect(PullPolicy.isEligible(page) == false)
     }
 
-    @Test("Not eligible: claimed by HUMAN")
+    @Test("Not eligible: claimed by Human")
     func notEligibleHumanClaimed() {
-        let page = makePage(claimedBy: "HUMAN")
+        let page = makePage(claimedBy: "Human")
         #expect(PullPolicy.isEligible(page) == false)
     }
 
     @Test("Not eligible: active lock (not expired)")
     func notEligibleActiveLock() {
         let future = Time.iso8601(Time.leaseExpiry(minutes: 30))
-        let page = makePage(claimedBy: "AGENT", lockExpires: future)
+        let page = makePage(claimedBy: "Agent", lockExpires: future)
         #expect(PullPolicy.isEligible(page) == false)
     }
 
     @Test("Eligible: expired lock")
     func eligibleExpiredLock() {
         let past = "2020-01-01T00:00:00Z"
-        let page = makePage(claimedBy: "AGENT", lockExpires: past)
+        let page = makePage(claimedBy: "Agent", lockExpires: past)
         #expect(PullPolicy.isEligible(page) == true)
     }
 }
