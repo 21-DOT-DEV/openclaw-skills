@@ -78,7 +78,7 @@ ntask next
 ### 3. Claim
 
 ```bash
-ntask claim <task-id> --run-id <run-id> --agent-name <name> --lease-min 20
+ntask claim <task-id> --run-id <run-id> --lease-min 20
 ```
 
 - **Success:** save the `lock_token` and `lock_expires` from the response.

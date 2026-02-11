@@ -154,15 +154,18 @@ enum NotionCLI {
     static func updateForClaim(
         pageId: String,
         runId: String,
-        agentName: String,
         lockToken: String,
         lockedUntil: String
     ) async throws {
+        guard let agentUserId = ProcessInfo.processInfo.environment["NOTION_AGENT_USER_ID"],
+              !agentUserId.isEmpty else {
+            throw NTaskError.misconfigured("NOTION_AGENT_USER_ID environment variable is not set")
+        }
         let properties = claimProperties(
             runId: runId,
-            agentName: agentName,
             lockToken: lockToken,
-            lockedUntil: lockedUntil
+            lockedUntil: lockedUntil,
+            agentUserId: agentUserId
         )
         try await updatePage(pageId: pageId, properties: properties)
     }
@@ -186,9 +189,7 @@ enum NotionCLI {
         let properties: [String: Any] = [
             "Status": ["status": ["name": "Done"]],
             "Done At": ["date": ["start": doneAt]],
-            "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
-            "Agent": ["select": NSNull()],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
         ]
@@ -206,9 +207,7 @@ enum NotionCLI {
             "Status": ["status": ["name": "Blocked"]],
             "Blocker Reason": ["rich_text": [["text": ["content": reason]]]],
             "Unblock Action": ["rich_text": [["text": ["content": unblockAction]]]],
-            "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
-            "Agent": ["select": NSNull()],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
         ]
@@ -291,9 +290,7 @@ enum NotionCLI {
     ) async throws {
         let properties: [String: Any] = [
             "Status": ["status": ["name": "Review"]],
-            "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
-            "Agent": ["select": NSNull()],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
         ]
@@ -308,9 +305,7 @@ enum NotionCLI {
         let properties: [String: Any] = [
             "Status": ["status": ["name": "Canceled"]],
             "Blocker Reason": ["rich_text": [["text": ["content": reason]]]],
-            "Claimed By": ["select": NSNull()],
             "Agent Run": ["rich_text": []],
-            "Agent": ["select": NSNull()],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
         ]
@@ -326,15 +321,14 @@ enum NotionCLI {
 
     private static func claimProperties(
         runId: String,
-        agentName: String,
         lockToken: String,
-        lockedUntil: String
+        lockedUntil: String,
+        agentUserId: String
     ) -> [String: Any] {
         [
             "Status": ["status": ["name": "In Progress"]],
-            "Claimed By": ["select": ["name": "Agent"]],
+            "Assignee": ["people": [["object": "user", "id": agentUserId]]],
             "Agent Run": ["rich_text": [["text": ["content": runId]]]],
-            "Agent": ["select": ["name": agentName]],
             "Lock Token": ["rich_text": [["text": ["content": lockToken]]]],
             "Lock Expires": ["date": ["start": lockedUntil]],
             "Started At": ["date": ["start": Time.iso8601(Time.now())]]

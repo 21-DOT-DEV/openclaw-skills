@@ -38,6 +38,11 @@ struct Doctor: AsyncParsableCommand {
         checks["env_NOTION_TASKS_DB_ID"] = hasDbId
         if !hasDbId { allOk = false }
 
+        // Check NOTION_AGENT_USER_ID
+        let hasAgentUserId = ProcessInfo.processInfo.environment["NOTION_AGENT_USER_ID"]?.isEmpty == false
+        checks["env_NOTION_AGENT_USER_ID"] = hasAgentUserId
+        if !hasAgentUserId { allOk = false }
+
         // Check database accessibility (only if auth and db id are present)
         if hasAuth && hasDbId {
             do {
@@ -53,7 +58,8 @@ struct Doctor: AsyncParsableCommand {
             JSONOut.success(["checks": checks])
         } else {
             let missing = !hasAuth ? "Notion credentials (run `notion auth login` or set NOTION_TOKEN)" :
-                          !hasDbId ? "NOTION_TASKS_DB_ID" : "notion-cli or database access"
+                          !hasDbId ? "NOTION_TASKS_DB_ID" :
+                          !hasAgentUserId ? "NOTION_AGENT_USER_ID" : "notion-cli or database access"
             let code = (checks["notion_cli"] as? [String: Any])?["found"] as? Bool == false
                     ? "CLI_MISSING" : "MISCONFIGURED"
             let dict: [String: Any] = [

@@ -61,10 +61,9 @@
         "type": "object",
         "properties": {
           "--page-id": { "type": "string", "description": "Notion page ID" },
-          "--run-id": { "type": "string", "description": "Unique agent run identifier" },
-          "--agent-name": { "type": "string", "description": "Agent name for attribution" }
+          "--run-id": { "type": "string", "description": "Unique agent run identifier" }
         },
-        "required": ["--page-id", "--run-id", "--agent-name"]
+        "required": ["--page-id", "--run-id"]
       },
       "output_format": "json",
       "exit_codes": {
@@ -80,7 +79,7 @@
       "examples": [
         {
           "intent": "Claim a task for this agent run",
-          "command": "ntask claim --page-id abc-123 --run-id run-001 --agent-name my-agent",
+          "command": "ntask claim --page-id abc-123 --run-id run-001",
           "output_format": "json",
           "example_output": {
             "ok": true,

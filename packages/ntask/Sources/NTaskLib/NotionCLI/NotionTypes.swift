@@ -124,22 +124,12 @@ struct NotionPage: Decodable {
         return rollup.number.flatMap { Int($0) }
     }
 
-    var claimedBy: String? {
-        guard case .select(let sel) = properties["Claimed By"] else { return nil }
-        return sel?.name
-    }
-
     var agentRunId: String? {
         switch properties["Agent Run"] {
         case .richText(let text): return text.isEmpty ? nil : text
         case .title(let text): return text.isEmpty ? nil : text
         default: return nil
         }
-    }
-
-    var agent: String? {
-        guard case .select(let sel) = properties["Agent"] else { return nil }
-        return sel?.name
     }
 
     var lockToken: String? {
@@ -187,9 +177,7 @@ struct NotionPage: Decodable {
         if let v = status { dict["status"] = v }
         if let v = priority { dict["priority"] = v }
         if let v = classOfService { dict["class"] = v }
-        if let v = claimedBy { dict["claimed_by"] = v }
         if let v = agentRunId { dict["agent_run"] = v }
-        if let v = agent { dict["agent"] = v }
         if let v = lockToken { dict["lock_token"] = v }
         if let v = lockExpires { dict["lock_expires"] = v }
         if let v = blockerReason { dict["blocker_reason"] = v }

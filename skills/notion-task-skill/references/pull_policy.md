@@ -11,15 +11,14 @@ must make the same selection.
 A task is eligible for selection when **all** of the following are true:
 
 1. **Status** equals `Ready`
-2. **Claimed By** is NOT `Human` (human-claimed tasks are never auto-pulled,
-   regardless of `Lock Expires`)
-3. **Lock is empty or expired:**
-   - `Claimed By` is empty, **OR**
+2. **Lock is empty or expired:**
+   - `Lock Token` is empty, **OR**
    - `Lock Expires` is empty or in the past (lock expired or inconsistent state)
+
 That's it — no sub-task or dependency checks at claim time. Sub-task completion
 is enforced at `done` time via the Dependencies rollup.
 
-**Edge case — inconsistent state:** If `Claimed By` is `Agent` but `Lock Expires` is
+**Edge case — inconsistent state:** If `Lock Token` is set but `Lock Expires` is
 empty, the task is treated as claimable (expired lock). This can happen if a
 previous operation failed mid-update. The claiming agent should note this in the
 task's comments for auditability.
@@ -43,9 +42,8 @@ The **first** task after sorting is returned by `ntask next`.
 1. Generate a UUID v4 `Lock Token`.
 2. Set the following properties atomically:
    - `Status` → `In Progress`
-   - `Claimed By` → `Agent`
+   - `Assignee` → agent's Notion user (from `NOTION_AGENT_USER_ID` env var)
    - `Agent Run` → provided run ID
-   - `Agent` → provided agent name
    - `Lock Token` → generated token
    - `Lock Expires` → now + lease duration (default 20 minutes)
    - `Started At` → now (if property exists)
@@ -69,9 +67,7 @@ The **first** task after sorting is returned by `ntask next`.
    - `Status` → `Done`
    - `Done At` → now (if property exists)
    - Clear lock fields (set to null/empty):
-     - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
-     - `Agent` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
      - `Lock Expires` → null (clear the Date)
 4. Return success.
@@ -86,9 +82,7 @@ The **first** task after sorting is returned by `ntask next`.
    - `Unblock Action` → provided unblock action
    - `Next Check At` → provided ISO 8601 timestamp (optional)
    - Clear lock fields (set to null/empty):
-     - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
-     - `Agent` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
      - `Lock Expires` → null (clear the Date)
 4. Return success.
@@ -100,9 +94,7 @@ The **first** task after sorting is returned by `ntask next`.
 3. Update properties:
    - `Status` → `Review`
    - Clear lock fields (set to null/empty):
-     - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
-     - `Agent` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
      - `Lock Expires` → null (clear the Date)
 4. Return success.
@@ -115,9 +107,7 @@ The **first** task after sorting is returned by `ntask next`.
    - `Status` → `Canceled`
    - `Blocker Reason` → provided reason
    - Clear lock fields (set to null/empty):
-     - `Claimed By` → null (clear the Select)
      - `Agent Run` → `""` (empty string)
-     - `Agent` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
      - `Lock Expires` → null (clear the Date)
 4. Return success.

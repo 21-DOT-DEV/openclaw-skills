@@ -45,9 +45,7 @@ struct TaskSummary: Codable, Equatable {
     let status: String?
     let priority: Int?
     let taskClass: String?
-    let claimedBy: String?
     let agentRun: String?
-    let agent: String?
     let lockToken: String?
     let lockExpires: String?
     let startedAt: String?
@@ -65,9 +63,7 @@ struct TaskSummary: Codable, Equatable {
         case status
         case priority
         case taskClass = "class"
-        case claimedBy = "claimed_by"
         case agentRun = "agent_run"
-        case agent
         case lockToken = "lock_token"
         case lockExpires = "lock_expires"
         case startedAt = "started_at"

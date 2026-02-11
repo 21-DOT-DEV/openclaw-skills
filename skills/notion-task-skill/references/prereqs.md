@@ -98,9 +98,7 @@ keychain credentials are not available.
 | Status                 | Status    | Backlog, Ready, In Progress, Blocked, Review, Done, Canceled           |
 | Priority               | Number    | 1–3 (higher = more urgent)                                             |
 | Class                  | Select    | Expedite, Fixed Date, Standard, Intangible                             |
-| Claimed By             | Select    | Agent, Human                                                           |
 | Agent Run              | Text      | —                                                                      |
-| Agent                  | Select    | Agent name/identifier                                                  |
 | Lock Token             | Text      | —                                                                      |
 | Lock Expires           | Date      | —                                                                      |
 | Dependencies           | Rollup    | Counts all sub-tasks (total count)                                     |
@@ -118,9 +116,7 @@ properties. Open the database and check each one:
 - [ ] **Status** — Native status with values: Backlog, Ready, In Progress, Blocked, Review, Done, Canceled
 - [ ] **Priority** — Number 1–3 (higher = more urgent)
 - [ ] **Class** — Select with values: Expedite, Fixed Date, Standard, Intangible
-- [ ] **Claimed By** — Select with values: Agent, Human
 - [ ] **Agent Run** — Text (can be empty initially)
-- [ ] **Agent** — Select (agent name/identifier, can be empty initially)
 - [ ] **Lock Token** — Text (can be empty initially)
 - [ ] **Lock Expires** — Date (can be empty initially)
 - [ ] **Dependencies** — Rollup on Sub-tasks relation (counts all sub-tasks)
@@ -160,6 +156,18 @@ export NOTION_TASKS_DB_ID="abc123def456789012345678abcdef12"
 
 Add this to your shell profile (`.zshrc`, `.bashrc`, etc.) to persist it.
 
+## 5b. Set the Agent User ID
+
+The `claim` command sets the Notion **Assignee** people property to the agent's
+Notion user. Find the user ID by querying the Notion API or checking the
+integration's bot user ID.
+
+```bash
+export NOTION_AGENT_USER_ID="c2f20311-9e54-4d11-8c79-7398424ae41e"
+```
+
+Add this to your shell profile alongside `NOTION_TASKS_DB_ID`.
+
 ## 6. Build and Install the Skill
 
 From the openclaw-skills repository root:
@@ -184,7 +192,8 @@ Doctor checks (in order):
 2. `notion --version` succeeds
 3. `NOTION_TOKEN` is available (keychain or environment)
 4. `NOTION_TASKS_DB_ID` environment variable is set
-5. A lightweight database query succeeds (verifies token + database access)
+5. `NOTION_AGENT_USER_ID` environment variable is set
+6. A lightweight database query succeeds (verifies token + database access)
 
 **All checks pass?** You're ready to go. Run `ntask next` to pull your first
 task.
@@ -196,6 +205,7 @@ task.
 | notion_cli not found  | Re-install notion-cli (step 1)                          |
 | notion_token          | Run `notion auth login` or set NOTION_TOKEN (step 2)    |
 | env_NOTION_TASKS_DB_ID| Set NOTION_TASKS_DB_ID in your environment (step 5)     |
+| env_NOTION_AGENT_USER_ID| Set NOTION_AGENT_USER_ID in your environment (step 5b) |
 | db_accessible = false | Share the database with your integration (step 4)       |
 
 ## Notes

@@ -12,9 +12,6 @@ struct Claim: AsyncParsableCommand {
     @Option(name: .long, help: "Unique run identifier")
     var runId: String
 
-    @Option(name: .long, help: "Agent name")
-    var agentName: String
-
     @Option(name: .long, help: "Lease duration in minutes")
     var leaseMin: Int = 20
 
@@ -27,7 +24,6 @@ struct Claim: AsyncParsableCommand {
             try await NotionCLI.updateForClaim(
                 pageId: page.pageId,
                 runId: runId,
-                agentName: agentName,
                 lockToken: lockToken,
                 lockedUntil: lockedUntil
             )

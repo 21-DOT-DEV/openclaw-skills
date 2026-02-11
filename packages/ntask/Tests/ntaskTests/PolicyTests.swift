@@ -12,7 +12,6 @@ struct PullPolicySortTests {
         status: String = "Ready",
         priority: Int = 2,
         classOfService: String = "Standard",
-        claimedBy: String? = nil,
         lockToken: String? = nil,
         lockExpires: String? = nil,
         lastEditedTime: String = "2025-01-01T00:00:00Z"
@@ -23,9 +22,6 @@ struct PullPolicySortTests {
             "Priority": .number(Double(priority)),
             "Class": .select(NotionSelect(name: classOfService))
         ]
-        if let claimedBy {
-            props["Claimed By"] = .select(NotionSelect(name: claimedBy))
-        }
         if let lockToken {
             props["Lock Token"] = .richText(lockToken)
         }
@@ -120,23 +116,17 @@ struct PullPolicySortTests {
         #expect(PullPolicy.isEligible(page) == false)
     }
 
-    @Test("Not eligible: claimed by Human")
-    func notEligibleHumanClaimed() {
-        let page = makePage(claimedBy: "Human")
-        #expect(PullPolicy.isEligible(page) == false)
-    }
-
     @Test("Not eligible: active lock (not expired)")
     func notEligibleActiveLock() {
         let future = Time.iso8601(Time.leaseExpiry(minutes: 30))
-        let page = makePage(claimedBy: "Agent", lockExpires: future)
+        let page = makePage(lockToken: "tok-123", lockExpires: future)
         #expect(PullPolicy.isEligible(page) == false)
     }
 
     @Test("Eligible: expired lock")
     func eligibleExpiredLock() {
         let past = "2020-01-01T00:00:00Z"
-        let page = makePage(claimedBy: "Agent", lockExpires: past)
+        let page = makePage(lockToken: "tok-123", lockExpires: past)
         #expect(PullPolicy.isEligible(page) == true)
     }
 }

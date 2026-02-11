@@ -64,7 +64,7 @@ The Status property uses Notion's native `status` type with three groups:
 
 Higher number = more urgent. Scale 1–3.
 
-## Added Properties (7 new)
+## Added Properties (5 new)
 
 These properties are added for agent lifecycle management:
 
@@ -72,11 +72,13 @@ These properties are added for agent lifecycle management:
 |---|---|---|
 | ID | `unique_id` | Auto-increment, customizable prefix, URL-accessible. Read-only via API (Notion generates). |
 | Class | Select | Kanban class-of-service: Expedite, Fixed Date, Standard, Intangible |
-| Claimed By | Select | Who holds the lock: `Agent` or `Human` |
-| Agent | Select | Name/identifier of the agent holding the lock |
 | Agent Run | Rich Text | UUID for the agent's current run (no better Notion type for UUIDs) |
 | Lock Token | Rich Text | UUID for lock verification (no better Notion type for UUIDs) |
 | Lock Expires | Date | ISO 8601 timestamp when the lock expires |
+
+The existing **Assignee** (People) property is reused on claim — set to the
+agent's Notion user via `NOTION_AGENT_USER_ID` env var. Persists after release
+as audit trail.
 
 ### Dependencies (Rollup)
 
@@ -95,13 +97,6 @@ Rollup on the Sub-tasks relation using count_per_group for the Complete group
 | Fixed Date | 2 | Has a hard deadline |
 | Standard | 3 | Normal priority work |
 | Intangible | 4 | Technical debt, improvements, nice-to-have |
-
-### Claimed By — Allowed Select Options
-
-| Value | Meaning |
-|---|---|
-| Agent | Claimed by an automated agent |
-| Human | Claimed by a human operator |
 
 ## Optional Properties
 
@@ -124,15 +119,14 @@ These changes improve the original schema design:
 |---|---|---|---|
 | TaskID | rich_text | `unique_id` | Auto-increment, customizable prefix, guaranteed unique |
 | AcceptanceCriteria | rich_text | Removed — use sub-items | Each criterion = sub-task with checkbox. Native Notion pattern. |
-| AgentName | rich_text | `select` (renamed `Agent`) | Finite set of agents. Better for formulas/filters. |
 | ClassOfService | select | select (renamed `Class`) | Cleaner column header |
-| ClaimedBy | select | select (renamed `Claimed By`) | Spaced for readability |
 | AgentRunID | rich_text | rich_text (renamed `Agent Run`) | UUID — no better type exists |
 | LockToken | rich_text | rich_text (renamed `Lock Token`) | UUID — no better type exists |
 | LockedUntil | date | date (renamed `Lock Expires`) | More descriptive |
 
-Net result: 7 new properties (down from 8). Only 2 rich_text fields remain
-(both UUIDs where no alternative exists).
+Net result: 5 new properties. Only 2 rich_text fields remain
+(both UUIDs where no alternative exists). Existing Assignee (People) property
+is reused for agent attribution.
 
 ## Migration Plan
 

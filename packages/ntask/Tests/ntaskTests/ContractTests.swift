@@ -31,9 +31,7 @@ struct ContractTests {
             status: "Ready",
             priority: 2,
             taskClass: "Standard",
-            claimedBy: nil,
             agentRun: nil,
-            agent: nil,
             lockToken: nil,
             lockExpires: nil,
             startedAt: nil,
@@ -87,9 +85,7 @@ struct ContractTests {
             status: "In Progress",
             priority: nil,
             taskClass: nil,
-            claimedBy: "Agent",
             agentRun: "run-other",
-            agent: nil,
             lockToken: nil,
             lockExpires: nil,
             startedAt: nil,
@@ -109,7 +105,7 @@ struct ContractTests {
         let decoded = try decoder.decode(NTaskErrorResponse.self, from: data)
         #expect(decoded.ok == false)
         #expect(decoded.error.code == "CONFLICT")
-        #expect(decoded.task?.claimedBy == "Agent")
+        #expect(decoded.task?.agentRun == "run-other")
     }
 
     // MARK: - TaskSummary Field Names (snake_case contract)
@@ -122,9 +118,7 @@ struct ContractTests {
             status: "Done",
             priority: 2,
             taskClass: "Expedite",
-            claimedBy: "Agent",
             agentRun: "run-1",
-            agent: "agent-1",
             lockToken: "tok-1",
             lockExpires: "2025-01-01T00:00:00Z",
             startedAt: "2024-12-31T12:00:00Z",
@@ -143,9 +137,7 @@ struct ContractTests {
         #expect(json["page_id"] as? String == "p1")
         #expect(json["task_id"] as? String == "T-1")
         #expect(json["class"] as? String == "Expedite")
-        #expect(json["claimed_by"] as? String == "Agent")
         #expect(json["agent_run"] as? String == "run-1")
-        #expect(json["agent"] as? String == "agent-1")
         #expect(json["lock_token"] as? String == "tok-1")
         #expect(json["lock_expires"] as? String == "2025-01-01T00:00:00Z")
         #expect(json["started_at"] as? String == "2024-12-31T12:00:00Z")
@@ -160,6 +152,8 @@ struct ContractTests {
         #expect(json["agent_name"] == nil)
         #expect(json["locked_until"] == nil)
         #expect(json["artifacts"] == nil)
+        #expect(json["claimed_by"] == nil)
+        #expect(json["agent"] == nil)
 
         // Verify NO camelCase keys leak through
         #expect(json["pageId"] == nil)
@@ -277,7 +271,7 @@ struct ContractTests {
             TaskSummary(
                 pageId: "p1", taskId: "T-1", status: "Ready", priority: 2,
                 taskClass: "Standard",
-                claimedBy: nil, agentRun: nil, agent: nil,
+                agentRun: nil,
                 lockToken: nil, lockExpires: nil, startedAt: nil, doneAt: nil,
                 blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
                 completedSubtasks: nil, parentTaskId: nil, reason: nil
@@ -285,7 +279,7 @@ struct ContractTests {
             TaskSummary(
                 pageId: "p2", taskId: "T-2", status: "In Progress", priority: 3,
                 taskClass: "Expedite",
-                claimedBy: "Agent", agentRun: "run-1", agent: nil,
+                agentRun: "run-1",
                 lockToken: nil, lockExpires: nil, startedAt: nil, doneAt: nil,
                 blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
                 completedSubtasks: nil, parentTaskId: nil, reason: nil
@@ -367,7 +361,7 @@ struct ContractTests {
         let task = TaskSummary(
             pageId: "p1", taskId: "T-1a", status: "Canceled", priority: nil,
             taskClass: nil,
-            claimedBy: nil, agentRun: nil, agent: nil,
+            agentRun: nil,
             lockToken: nil, lockExpires: nil, startedAt: nil, doneAt: nil,
             blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
             completedSubtasks: nil, parentTaskId: "T-1", reason: "No longer needed"

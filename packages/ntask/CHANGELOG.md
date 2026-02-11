@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.3.0] - 2026-02-11
+
+### Breaking Changes
+- **Removed DB properties**: `Agent` (select) and `Claimed By` (select) no longer read or written
+- **Removed JSON output fields**: `agent` and `claimed_by` removed from task summaries
+- **Removed CLI flag**: `--agent-name` removed from `claim` command
+- **PullPolicy**: Eligibility now uses lock-only checks (`Lock Token` + `Lock Expires`);
+  human/agent distinction via `Claimed By` is removed
+
+### Added
+- **Assignee** people property: Written on `claim` using `NOTION_AGENT_USER_ID` env var
+  (Notion user ID). Persists after release as audit trail.
+- `NOTION_AGENT_USER_ID` env var: Required for `claim`; validated by `ntask doctor`
+- `env_NOTION_AGENT_USER_ID` check in `ntask doctor` output
+
+### Changed
+- `updateForClaim` signature: removed `agentName` parameter
+- `claimProperties`: replaced `Agent`/`Claimed By` with `Assignee` people property
+- Release blocks (complete/block/review/cancel): no longer clear `Agent` or `Claimed By`
+
 ## [0.2.1] - 2026-02-10
 
 ### Breaking Changes

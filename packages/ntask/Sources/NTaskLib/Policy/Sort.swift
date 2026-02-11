@@ -8,11 +8,8 @@ enum PullPolicy {
         guard page.status == TaskStatus.ready.rawValue else { return false }
 
         // 2. Lock must be empty or expired
-        if let claimedBy = page.claimedBy, claimedBy == "Human" {
-            return false // Rule 5: never auto-pull human-claimed
-        }
-        if let claimedBy = page.claimedBy, !claimedBy.isEmpty {
-            // Has a claim — check if lock expired.
+        if let lockToken = page.lockToken, !lockToken.isEmpty {
+            // Has a lock — check if expired.
             // If Lock Expires is nil (inconsistent state from a failed mid-update),
             // fall through and treat as claimable.
             if let lockExpires = page.lockExpires, !Time.isExpired(lockExpires) {

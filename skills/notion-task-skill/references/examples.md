@@ -15,9 +15,7 @@ are present in every response — only populated fields are included.
 | `status`             | string  | ✓              | Current lifecycle status             |
 | `priority`           | number  |                | Numeric priority                     |
 | `class`              | string  |                | Expedite/Fixed Date/Standard/Intangible |
-| `claimed_by`         | string  |                | Agent or Human                       |
 | `agent_run`          | string  |                | Current agent's run identifier       |
-| `agent`              | string  |                | Current agent's name                 |
 | `lock_token`         | string  |                | UUID lock token                      |
 | `lock_expires`       | string  |                | ISO 8601 lock expiry                 |
 | `started_at`         | string  |                | ISO 8601 when work began             |
@@ -45,6 +43,7 @@ ntask doctor
     "notion_cli": { "found": true, "version": "0.6.0" },
     "notion_token": { "available": true, "source": "environment" },
     "env_NOTION_TASKS_DB_ID": true,
+    "env_NOTION_AGENT_USER_ID": true,
     "db_accessible": true
   }
 }
@@ -59,7 +58,8 @@ ntask doctor
   "checks": {
     "notion_cli": { "found": false },
     "notion_token": { "available": true, "source": "environment" },
-    "env_NOTION_TASKS_DB_ID": true
+    "env_NOTION_TASKS_DB_ID": true,
+    "env_NOTION_AGENT_USER_ID": true
   }
 }
 ```
@@ -104,7 +104,6 @@ Claim a task for this agent run:
 ```bash
 ntask claim PROJ-42 \
   --run-id "run-abc-123" \
-  --agent-name "coding-agent-1" \
   --lease-min 20
 ```
 
@@ -119,9 +118,7 @@ ntask claim PROJ-42 \
     "status": "In Progress",
     "lock_token": "550e8400-e29b-41d4-a716-446655440000",
     "lock_expires": "2025-01-15T14:50:00Z",
-    "claimed_by": "Agent",
-    "agent_run": "run-abc-123",
-    "agent": "coding-agent-1"
+    "agent_run": "run-abc-123"
   }
 }
 ```
@@ -136,7 +133,6 @@ ntask claim PROJ-42 \
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
     "status": "In Progress",
-    "claimed_by": "Agent",
     "agent_run": "run-other-456"
   }
 }
@@ -175,7 +171,6 @@ ntask heartbeat PROJ-42 \
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "claimed_by": "Agent",
     "agent_run": "run-other-789"
   }
 }
