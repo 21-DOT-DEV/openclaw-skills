@@ -122,6 +122,27 @@ Optionally include `--next-check <ISO8601>` to suggest when to revisit.
 
 After blocking, loop back to step 2 (`next`).
 
+### 5c. Review (needs human judgment)
+
+```bash
+ntask review <task-id> --run-id <run-id> --lock-token <token>
+```
+
+After submitting for review, loop back to step 2 (`next`). The lock is released.
+
+### 5d. Post-Review (human-driven, no lock required)
+
+A human reviews the task and runs one of:
+
+```bash
+ntask approve <task-id>                          # Review → Done
+ntask approve <task-id> --summary "LGTM"         # with comment
+ntask rework <task-id> --reason "<feedback>"     # Review → Ready
+```
+
+- **approve**: Marks the task Done. No sub-task guard — reviewer authority overrides.
+- **rework**: Moves back to Ready with a comment. The next `next` cycle picks it up.
+
 ## Error Recovery Matrix
 
 | Exit Code | Error          | Agent Action                                         |

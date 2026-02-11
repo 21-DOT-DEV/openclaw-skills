@@ -99,6 +99,37 @@ The **first** task after sorting is returned by `ntask next`.
      - `Lock Expires` → null (clear the Date)
 4. Return success.
 
+### Approve (approve) — no lock required
+
+1. Read the page and validate `Status` is `Review`.
+2. If status is not Review → return `MISCONFIGURED`.
+3. Update properties:
+   - `Status` → `Done`
+   - `Done At` → now
+   - Clear lock fields (set to null/empty):
+     - `Agent Run` → `""` (empty string)
+     - `Lock Token` → `""` (empty string)
+     - `Lock Expires` → null (clear the Date)
+4. If `--summary` provided, add a comment with the summary text.
+5. Return success.
+
+No sub-task completion guard — reviewer authority overrides mechanical checks.
+
+### Rework (rework) — no lock required
+
+1. Read the page and validate `Status` is `Review`.
+2. If status is not Review → return `MISCONFIGURED`.
+3. Update properties:
+   - `Status` → `Ready`
+   - Clear lock fields (set to null/empty):
+     - `Agent Run` → `""` (empty string)
+     - `Lock Token` → `""` (empty string)
+     - `Lock Expires` → null (clear the Date)
+4. Add a comment with the `--reason` text (always, since reason is required).
+5. Return success.
+
+The task re-enters the Ready pool and will be picked up by the next `next` cycle.
+
 ### Cancel (cancel)
 
 1. Read the page and verify `Lock Token` matches the provided token.

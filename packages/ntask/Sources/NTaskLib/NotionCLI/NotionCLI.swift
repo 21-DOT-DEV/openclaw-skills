@@ -297,6 +297,29 @@ enum NotionCLI {
         try await updatePage(pageId: pageId, properties: properties)
     }
 
+    /// Update page properties to approve a reviewed task (Review → Done).
+    static func updateForApprove(pageId: String, doneAt: String) async throws {
+        let properties: [String: Any] = [
+            "Status": ["status": ["name": "Done"]],
+            "Done At": ["date": ["start": doneAt]],
+            "Agent Run": ["rich_text": []],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
+        ]
+        try await updatePage(pageId: pageId, properties: properties)
+    }
+
+    /// Update page properties to send task back for rework (Review → Ready).
+    static func updateForRework(pageId: String) async throws {
+        let properties: [String: Any] = [
+            "Status": ["status": ["name": "Ready"]],
+            "Agent Run": ["rich_text": []],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
+        ]
+        try await updatePage(pageId: pageId, properties: properties)
+    }
+
     /// Update page properties to mark task as CANCELED.
     static func updateForCancel(
         pageId: String,

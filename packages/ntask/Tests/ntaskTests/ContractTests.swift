@@ -356,6 +356,56 @@ struct ContractTests {
         if let original { setenv("NOTION_TOKEN", original, 1) } else { unsetenv("NOTION_TOKEN") }
     }
 
+    // MARK: - Approve / Rework Response Contracts
+
+    @Test("Approve response has ok=true and status=Done")
+    func approveResponseContract() throws {
+        let task = TaskSummary(
+            pageId: "abc123", taskId: "TASK-42", status: "Done", priority: 2,
+            taskClass: nil, agentRun: nil, lockToken: nil, lockExpires: nil,
+            startedAt: "2026-01-01T00:00:00Z", doneAt: "2026-01-02T00:00:00Z",
+            blockerReason: nil, unblockAction: nil, nextCheckAt: nil,
+            completedSubtasks: nil, parentTaskId: nil, reason: nil
+        )
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "Done")
+        #expect(taskJson["done_at"] as? String == "2026-01-02T00:00:00Z")
+    }
+
+    @Test("Rework response has ok=true, status=Ready, and reason")
+    func reworkResponseContract() throws {
+        let task = TaskSummary(
+            pageId: "abc123", taskId: "TASK-42", status: "Ready", priority: 2,
+            taskClass: nil, agentRun: nil, lockToken: nil, lockExpires: nil,
+            startedAt: nil, doneAt: nil, blockerReason: nil, unblockAction: nil,
+            nextCheckAt: nil, completedSubtasks: nil, parentTaskId: nil,
+            reason: "Needs markdown formatting"
+        )
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "Ready")
+        #expect(taskJson["reason"] as? String == "Needs markdown formatting")
+    }
+
+    @Test("Approve and Rework require Review status")
+    func reviewStatusValidation() throws {
+        let response = NTaskErrorResponse(
+            error: NTaskErrorPayload(code: "MISCONFIGURED", message: "Task must be in Review status to approve (current: In Progress)")
+        )
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == false)
+        let errorObj = json["error"] as! [String: Any]
+        #expect(errorObj["code"] as? String == "MISCONFIGURED")
+    }
+
     @Test("TaskSummary encodes parent_task_id and reason")
     func taskSummaryNewFields() throws {
         let task = TaskSummary(

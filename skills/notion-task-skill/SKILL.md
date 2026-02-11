@@ -46,6 +46,8 @@ at the skill's `bin/` directory:
 | `get`       | Get full details of a specific task            |
 | `comment`   | Add a comment to a task                        |
 | `review`    | Move task to REVIEW for human inspection       |
+| `approve`   | Approve a reviewed task and mark as Done       |
+| `rework`    | Send a reviewed task back for rework           |
 | `cancel`    | Cancel a task with reason                      |
 | `update`    | Update task properties (priority, status, etc) |
 | `version`   | Print version information                      |
@@ -56,7 +58,7 @@ All status-changing commands that transition a task through the work lifecycle
 require a valid lock token (`--run-id` + `--lock-token`): **claim**, **heartbeat**,
 **complete**, **block**, **review**, and **cancel**. Commands that do not require a
 lock: **doctor**, **next**, **create**, **list**, **get**, **comment**, **update**,
-and **version**.
+**approve**, **rework**, and **version**.
 
 ### Output Contract
 

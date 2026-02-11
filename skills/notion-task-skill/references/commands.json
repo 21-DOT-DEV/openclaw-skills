@@ -378,6 +378,103 @@
       ]
     },
     {
+      "name": "approve",
+      "binary": "ntask",
+      "description": "Approve a reviewed task and mark as Done",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "<task-id>": { "type": "string", "description": "TaskID to approve (e.g. TASK-42)" },
+          "--summary": { "type": "string", "description": "Optional approval summary (added as comment)" }
+        },
+        "required": ["<task-id>"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task approved and marked Done",
+        "3": "MISCONFIGURED — task not in Review status",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Approve this task and mark as Done?",
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Approve a reviewed task",
+          "command": "ntask approve TASK-42",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "task_id": "TASK-42",
+              "status": "Done",
+              "done_at": "2026-02-11T10:00:00Z"
+            }
+          },
+          "exit_code": 0
+        },
+        {
+          "intent": "Approve with summary comment",
+          "command": "ntask approve TASK-42 --summary \"LGTM, clean implementation\"",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "task_id": "TASK-42",
+              "status": "Done",
+              "done_at": "2026-02-11T10:00:00Z"
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "name": "rework",
+      "binary": "ntask",
+      "description": "Send a reviewed task back for rework",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "<task-id>": { "type": "string", "description": "TaskID to send back (e.g. TASK-42)" },
+          "--reason": { "type": "string", "description": "Reason for rework (feedback for the worker)" }
+        },
+        "required": ["<task-id>", "--reason"]
+      },
+      "output_format": "json",
+      "exit_codes": {
+        "0": "Success — task sent back to Ready",
+        "3": "MISCONFIGURED — task not in Review status",
+        "5": "API_ERROR"
+      },
+      "destructive": true,
+      "idempotent": false,
+      "requires_confirmation": true,
+      "confirmation_message": "Send this task back for rework?",
+      "capability": "lifecycle",
+      "examples": [
+        {
+          "intent": "Send task back for rework with feedback",
+          "command": "ntask rework TASK-42 --reason \"Needs markdown formatting in README\"",
+          "output_format": "json",
+          "example_output": {
+            "ok": true,
+            "task": {
+              "page_id": "abc-123",
+              "task_id": "TASK-42",
+              "status": "Ready",
+              "reason": "Needs markdown formatting in README"
+            }
+          },
+          "exit_code": 0
+        }
+      ]
+    },
+    {
       "name": "cancel",
       "binary": "ntask",
       "description": "Cancel a task with reason",
