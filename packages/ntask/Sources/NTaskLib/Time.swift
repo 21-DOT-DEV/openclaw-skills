@@ -7,6 +7,12 @@ enum Time {
         return f
     }()
 
+    nonisolated(unsafe) private static let _fractionalFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     static func now() -> Date { Date() }
 
     static func iso8601(_ date: Date) -> String {
@@ -18,7 +24,8 @@ enum Time {
     }
 
     static func parse(_ string: String) -> Date? {
-        _formatter.date(from: string)
+        // Try standard format first, then with fractional seconds (Notion returns .000)
+        _formatter.date(from: string) ?? _fractionalFormatter.date(from: string)
     }
 
     static func isExpired(_ dateString: String) -> Bool {
