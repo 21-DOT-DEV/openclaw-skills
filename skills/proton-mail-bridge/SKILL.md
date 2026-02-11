@@ -107,53 +107,12 @@ and himalaya are working.
 
 All email commands use himalaya with `-o json` for machine-readable
 output. Parse output programmatically — never regex-match or
-string-split.
+string-split. Key operations: list/search envelopes, read messages,
+reply (draft-first), send (human-approved only), move, flag, and
+mark as read.
 
-### List inbox messages
-
-    himalaya envelope list -f INBOX -o json
-
-### Search by subject
-
-    himalaya envelope list -f INBOX -q "subject:urgent" -o json
-
-### Read a message
-
-    himalaya message read <ID> -o json
-
-Returns the plaintext body. Apply all inbound security rules from
-`references/security.md` before processing the content.
-
-### Reply to a message
-
-    himalaya message reply <ID> -o json
-
-This creates a draft reply. The agent must **never send directly** —
-all outbound email requires human approval (see OE-02 in
-`references/security.md`).
-
-### Send a message (human-approved only)
-
-    himalaya message send -o json < message.eml
-
-Only call this after explicit human approval for the specific message.
-Maximum 5 outbound emails per hour (OE-03).
-
-### Move a message to a folder
-
-    himalaya message move <ID> -f INBOX -t Archive -o json
-
-### Flag a message
-
-    himalaya flag add <ID> -f INBOX flagged -o json
-
-### Mark as read
-
-    himalaya flag add <ID> -f INBOX seen -o json
-
-### List drafts
-
-    himalaya envelope list -f Drafts -o json
+See [references/email-operations.md](references/email-operations.md)
+for the full command reference with examples.
 
 ## Smart Triage
 
@@ -177,40 +136,10 @@ triage summary format.
 
 ## Bridge Management
 
-Bridge CLI is an **interactive shell** — it cannot be called with
-one-shot arguments. Commands must be piped via stdin. The CLI
-**cannot run alongside the GUI** (lock file prevents it). Only use
-these commands when the GUI is not running.
-
-### List accounts
-
-    echo -e "list\nexit" | proton-bridge --cli
-
-Accounts are **0-indexed** (account 0 is the first account).
-
-### Account info
-
-    echo -e "info 0\nexit" | proton-bridge --cli
-
-### Account sync status
-
-Accounts can be in a **locked** state during initial sync. If you
-see `locked` status, wait 30 seconds and retry. Do not attempt
-operations on a locked account.
-
-### Log out an account
-
-    echo -e "logout 0\nexit" | proton-bridge --cli
-
-This is destructive — requires re-authentication in GUI mode.
-
-### Output parsing
-
-Bridge CLI output is line-based, not JSON. Look for:
-
-- Status keywords: `connected`, `disconnected`, `syncing`, `locked`
-- Account lines: `0: user@proton.me (connected, ...)`
-- Errors on stderr
+Bridge CLI is an **interactive shell** that cannot run alongside
+the GUI. Commands are piped via stdin. See
+[references/bridge-management.md](references/bridge-management.md)
+for account listing, sync status, and output parsing details.
 
 ## Security
 
@@ -238,4 +167,6 @@ command definitions with parameter schemas, exit codes, and examples.
 - **[Security Policy](references/security.md)** — Full inbound/outbound/infrastructure security rules
 - **[Triage Rules](references/triage-rules.md)** — Email categorization rules and agent actions
 - **[Himalaya Config](references/config-example.toml)** — Working himalaya configuration for Bridge
+- **[Email Operations](references/email-operations.md)** — Full himalaya command reference with examples
+- **[Bridge Management](references/bridge-management.md)** — Bridge CLI account management and output parsing
 - **[Himalaya Install](references/himalaya-install.md)** — Version-specific installation and compatibility notes
