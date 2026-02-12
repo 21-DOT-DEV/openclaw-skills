@@ -134,6 +134,21 @@ deadline extraction, and thread consolidation. See the reference
 file for full detection heuristics, periodic sweep tasks, and the
 triage summary format.
 
+### Integrations
+
+The triage system supports integration-specific rules for known
+notification sources. When an email matches a configured integration
+sender, it exits the generic triage tree and is handled by the
+integration's own classification and action rules.
+
+| Integration | Reference | Sender Domains |
+|-------------|-----------|----------------|
+| Notion | [notion-email-triggers.md](references/notion-email-triggers.md) | `mail.notion.so`, `updates.notion.so` |
+
+Integration references define per-sender classification (human vs.
+automated), task lookup flows, and action mapping. They reuse the
+skill's security policy (IE-* rules) and folder structure.
+
 ## Bridge Management
 
 Bridge CLI is an **interactive shell** that cannot run alongside
@@ -166,6 +181,7 @@ command definitions with parameter schemas, exit codes, and examples.
 
 - **[Security Policy](references/security.md)** — Full inbound/outbound/infrastructure security rules
 - **[Triage Rules](references/triage-rules.md)** — Email categorization rules and agent actions
+- **[Notion Email Triggers](references/notion-email-triggers.md)** — Notion notification classification and task action mapping
 - **[Himalaya Config](references/config-example.toml)** — Working himalaya configuration for Bridge
 - **[Email Operations](references/email-operations.md)** — Full himalaya command reference with examples
 - **[Bridge Management](references/bridge-management.md)** — Bridge CLI account management and output parsing
