@@ -35,6 +35,16 @@ patterns, isolate content with boundary markers. Reject if flagged.
 Skip if Message-ID already in processed state. For threads with
 multiple unread messages, process only the latest; archive the rest.
 
+### 2.5. Integration trigger
+**Detect**: From domain matches a configured integration
+(e.g., `mail.notion.so`, `updates.notion.so`).
+**Action**: Defer to the matching integration reference file.
+See [notion-email-triggers.md](notion-email-triggers.md) for
+Notion-specific classification and action rules.
+**Note**: Integration references handle their own routing
+(process, archive, or reference). The message exits the generic
+triage tree here.
+
 ### 3. 2FA / verification code
 **Detect**: subject contains "verification", "one-time", "OTP", "2FA",
 "login code", "confirm your"; sender is known auth domain.
