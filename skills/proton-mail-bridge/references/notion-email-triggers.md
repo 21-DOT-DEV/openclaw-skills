@@ -21,18 +21,38 @@ rules below. The message exits the generic triage tree at rule 2.5
 
 ---
 
+## Configuration
+
+Two allowlists control name-based classification. Both are configured
+per-deployment; nothing is hardcoded.
+
+- **USER_ALLOWLIST** — Notion display names the agent treats as human
+  (the workspace owner and any teammates whose comments should trigger
+  processing). Example: `["Chris", "Alice"]`.
+- **AUTOMATED_AGENTS** — Notion display names the agent treats as
+  automated workers whose activity should be archived silently.
+  Example: `["CLI", "Nova"]`.
+
+Any name that appears in neither list is treated as unknown and follows
+the low-confidence fallback path.
+
+---
+
 ## Classification Rules
 
 | Email Pattern | Origin | Action |
 |---------------|--------|--------|
-| Subject contains "Chris commented in" | Human | **Process** → lookup task, read comment, interpret intent |
-| Subject contains "Chris updated" | Human | **Process** → lookup task, check property changes |
-| Subject contains "CLI commented in" | Automated | **Archive** |
-| Subject contains "CLI updated" | Automated | **Archive** |
-| Subject contains "CLI mentioned you in" | Automated | **Archive** (bug if it happens) |
+| Subject contains "&lt;ALLOWED_USER&gt; commented in" | Human | **Process** → lookup task, read comment, interpret intent |
+| Subject contains "&lt;ALLOWED_USER&gt; updated" | Human | **Process** → lookup task, check property changes |
+| Subject contains "&lt;AUTOMATED_AGENT&gt; commented in" | Automated | **Archive** |
+| Subject contains "&lt;AUTOMATED_AGENT&gt; updated" | Automated | **Archive** |
+| Subject contains "&lt;AUTOMATED_AGENT&gt; mentioned you in" | Automated | **Archive** (bug if it happens) |
 | Subject contains "invited you to" | System | **Reference** (one-time setup) |
 | Subject contains "login code" or "logged into" | System | **Inbox** (2FA/security, short-lived) |
-| Default (unrecognized Notion email) | Unknown | **Archive** + flag low-confidence |
+| Name not in USER_ALLOWLIST or AUTOMATED_AGENTS | Unknown | **Archive** + flag low-confidence |
+
+Where `<ALLOWED_USER>` is any name in USER_ALLOWLIST and
+`<AUTOMATED_AGENT>` is any name in AUTOMATED_AGENTS.
 
 ---
 
@@ -40,8 +60,11 @@ rules below. The message exits the generic triage tree at rule 2.5
 
 Extract the task name from the subject using known patterns:
 
-- `"Chris commented in <task-name>"` → task name after "commented in"
-- `"Chris updated <task-name>"` → task name after "updated"
+- `"<ALLOWED_USER> commented in <task-name>"` → task name after "commented in"
+- `"<ALLOWED_USER> updated <task-name>"` → task name after "updated"
+
+The leading name is matched against USER_ALLOWLIST during
+classification; by this stage it has already been validated.
 
 Task names may include prefixes like `"Test: "` or `"Research: "`.
 
@@ -54,7 +77,7 @@ Parse task name from subject
 → ntask list (filter by name match)
 → If 0 results: archive email, log warning
 → If 1+ results: ntask get <task-id>
-→ Read latest comment from Chris
+→ Read latest comment from the matched user
 → Interpret intent (approve / rework / cancel / feedback / unclear)
 → Execute ntask action
 → Archive email
@@ -64,8 +87,8 @@ Parse task name from subject
 
 ## Idempotency
 
-Before acting, check if Nova has already responded to Chris's latest
-comment (any Nova comment after Chris's last comment).
+Before acting, check if the agent has already responded to the user's
+latest comment (any agent comment after the user's last comment).
 
 - If already responded → skip, archive email
 - This prevents duplicate processing when both email trigger and
@@ -78,10 +101,10 @@ the second detects the existing response and skips.
 
 ## Action Mapping
 
-Reuses HEARTBEAT.md patterns for interpreting Chris's intent from
+Reuses HEARTBEAT.md patterns for interpreting the user's intent from
 comments.
 
-| Chris's Intent | Detection | ntask Action |
+| User's Intent | Detection | ntask Action |
 |----------------|-----------|--------------|
 | Approve | "looks good", "approved", "ship it", thumbs-up | `ntask approve <task-id>` |
 | Rework | Feedback, changes requested, specific instructions | `ntask rework <task-id> --reason "<feedback>"` |
