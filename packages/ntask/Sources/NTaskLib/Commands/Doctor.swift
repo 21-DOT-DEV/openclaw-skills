@@ -3,71 +3,76 @@ import Foundation
 
 struct Doctor: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Validate environment, credentials, and notion-cli"
+        abstract: "Validate environment, credentials, and ntn CLI"
     )
 
     func run() async throws {
-        var checks: [String: Any] = [:]
         var allOk = true
 
-        // Check notion-cli presence and version
+        // Check ntn CLI presence and version
+        var cliCheck: NotionCliCheck
         do {
             let version = try await NotionCLI.checkVersion()
-            checks["notion_cli"] = ["found": true, "version": version]
+            cliCheck = NotionCliCheck(found: true, version: version)
         } catch {
-            checks["notion_cli"] = ["found": false]
+            cliCheck = NotionCliCheck(found: false, version: nil)
             allOk = false
         }
 
         // Check Notion auth: env var first, then keychain
         var hasAuth = false
+        var tokenCheck: NotionTokenCheck
         let envToken = ProcessInfo.processInfo.environment["NOTION_TOKEN"]?.isEmpty == false
         if envToken {
-            checks["notion_token"] = ["available": true, "source": "environment"]
+            tokenCheck = NotionTokenCheck(available: true, source: "environment")
             hasAuth = true
         } else if let tokenSource = await NotionCLI.checkAuthStatus() {
-            checks["notion_token"] = ["available": true, "source": tokenSource]
+            tokenCheck = NotionTokenCheck(available: true, source: tokenSource)
             hasAuth = true
         } else {
-            checks["notion_token"] = ["available": false]
+            tokenCheck = NotionTokenCheck(available: false, source: nil)
             allOk = false
         }
 
         // Check NOTION_TASKS_DB_ID
         let hasDbId = ProcessInfo.processInfo.environment["NOTION_TASKS_DB_ID"]?.isEmpty == false
-        checks["env_NOTION_TASKS_DB_ID"] = hasDbId
         if !hasDbId { allOk = false }
 
         // Check NOTION_AGENT_USER_ID
         let hasAgentUserId = ProcessInfo.processInfo.environment["NOTION_AGENT_USER_ID"]?.isEmpty == false
-        checks["env_NOTION_AGENT_USER_ID"] = hasAgentUserId
         if !hasAgentUserId { allOk = false }
 
         // Check database accessibility (only if auth and db id are present)
+        var dbAccessible: Bool? = nil
         if hasAuth && hasDbId {
             do {
                 try await NotionCLI.checkDatabaseAccess()
-                checks["db_accessible"] = true
+                dbAccessible = true
             } catch {
-                checks["db_accessible"] = false
+                dbAccessible = false
                 allOk = false
             }
         }
 
+        let checks = DoctorChecks(
+            notionCli: cliCheck,
+            notionToken: tokenCheck,
+            envNotionTasksDbId: hasDbId,
+            envNotionAgentUserId: hasAgentUserId,
+            dbAccessible: dbAccessible
+        )
+
         if allOk {
-            JSONOut.success(["checks": checks])
+            JSONOut.printEncodable(NTaskSuccessResponse<TaskSummary>(checks: checks))
         } else {
-            let missing = !hasAuth ? "Notion credentials (run `notion auth login` or set NOTION_TOKEN)" :
+            let missing = !hasAuth ? "Notion credentials (run `ntn auth login` or set NOTION_TOKEN)" :
                           !hasDbId ? "NOTION_TASKS_DB_ID" :
-                          !hasAgentUserId ? "NOTION_AGENT_USER_ID" : "notion-cli or database access"
-            let code = (checks["notion_cli"] as? [String: Any])?["found"] as? Bool == false
-                    ? "CLI_MISSING" : "MISCONFIGURED"
-            let dict: [String: Any] = [
-                "ok": false,
-                "error": ["code": code, "message": "Environment check failed: \(missing) not configured"],
-                "checks": checks
-            ]
-            JSONOut.printJSON(dict)
+                          !hasAgentUserId ? "NOTION_AGENT_USER_ID" : "ntn CLI or database access"
+            let code = !cliCheck.found ? "CLI_MISSING" : "MISCONFIGURED"
+            JSONOut.printEncodable(DoctorErrorResponse(
+                error: NTaskErrorPayload(code: code, message: "Environment check failed: \(missing) not configured"),
+                checks: checks
+            ))
             Darwin.exit(ExitCodes.misconfigured)
         }
     }

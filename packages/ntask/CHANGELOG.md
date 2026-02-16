@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.2] - 2026-02-15
+
+### Fixed
+- **notion → ntn binary rename**: All subprocess calls now invoke `ntn`
+  instead of `notion`, matching notion-cli ≥ v0.5.21. Fixes
+  SubprocessError on every command.
+- Extracted binary name into `NotionCLI.binaryName` constant for
+  single-point-of-change on future renames.
+
 ## [0.3.1] - 2026-02-11
 
 ### Added

@@ -1,5 +1,4 @@
 import ArgumentParser
-import Foundation
 
 struct Get: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -12,7 +11,7 @@ struct Get: AsyncParsableCommand {
     func run() async throws {
         do {
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
-            JSONOut.success(["task": page.toSummary()])
+            JSONOut.printEncodable(NTaskSuccessResponse(task: page.toTaskSummary()))
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

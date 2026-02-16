@@ -75,6 +75,42 @@ struct TaskSummary: Codable, Equatable {
         case parentTaskId = "parent_task_id"
         case reason
     }
+
+    init(
+        pageId: String,
+        taskId: String? = nil,
+        status: String? = nil,
+        priority: Int? = nil,
+        taskClass: String? = nil,
+        agentRun: String? = nil,
+        lockToken: String? = nil,
+        lockExpires: String? = nil,
+        startedAt: String? = nil,
+        doneAt: String? = nil,
+        blockerReason: String? = nil,
+        unblockAction: String? = nil,
+        nextCheckAt: String? = nil,
+        completedSubtasks: Int? = nil,
+        parentTaskId: String? = nil,
+        reason: String? = nil
+    ) {
+        self.pageId = pageId
+        self.taskId = taskId
+        self.status = status
+        self.priority = priority
+        self.taskClass = taskClass
+        self.agentRun = agentRun
+        self.lockToken = lockToken
+        self.lockExpires = lockExpires
+        self.startedAt = startedAt
+        self.doneAt = doneAt
+        self.blockerReason = blockerReason
+        self.unblockAction = unblockAction
+        self.nextCheckAt = nextCheckAt
+        self.completedSubtasks = completedSubtasks
+        self.parentTaskId = parentTaskId
+        self.reason = reason
+    }
 }
 
 // MARK: - Doctor Checks
@@ -88,17 +124,31 @@ struct DoctorChecks: Codable {
     let notionCli: NotionCliCheck?
     let notionToken: NotionTokenCheck?
     let envNotionTasksDbId: Bool?
+    let envNotionAgentUserId: Bool?
     let dbAccessible: Bool?
 
     enum CodingKeys: String, CodingKey {
         case notionCli = "notion_cli"
         case notionToken = "notion_token"
         case envNotionTasksDbId = "env_NOTION_TASKS_DB_ID"
+        case envNotionAgentUserId = "env_NOTION_AGENT_USER_ID"
         case dbAccessible = "db_accessible"
     }
 }
 
-struct NotionCliCheck: Codable {
+struct DoctorErrorResponse: Codable {
+    let ok: Bool
+    let error: NTaskErrorPayload
+    let checks: DoctorChecks
+
+    init(error: NTaskErrorPayload, checks: DoctorChecks) {
+        self.ok = false
+        self.error = error
+        self.checks = checks
+    }
+}
+
+struct NotionCliCheck: Codable, Equatable {
     let found: Bool
     let version: String?
 }

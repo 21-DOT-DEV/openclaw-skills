@@ -1,5 +1,4 @@
 import ArgumentParser
-import Foundation
 
 struct Comment: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -16,10 +15,7 @@ struct Comment: AsyncParsableCommand {
         do {
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
             try await NotionCLI.addComment(pageId: page.pageId, text: text)
-            JSONOut.success([
-                "task_id": taskId,
-                "comment": text
-            ])
+            JSONOut.printEncodable(CommentResponse(taskId: taskId, comment: text))
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

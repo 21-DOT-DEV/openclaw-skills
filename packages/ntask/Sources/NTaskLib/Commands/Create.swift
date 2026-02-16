@@ -58,14 +58,15 @@ struct Create: AsyncParsableCommand {
 
             let page = try await NotionCLI.createPage(properties: properties)
 
-            var result: [String: Any] = [:]
-            var summary = page.toSummary()
-            if let pid = parentTaskId {
-                summary["parent_task_id"] = pid
-            }
-            result["task"] = summary
-
-            JSONOut.success(result)
+            let summary = TaskSummary(
+                pageId: page.pageId,
+                taskId: page.taskId,
+                status: page.status,
+                priority: page.priority,
+                taskClass: page.classOfService,
+                parentTaskId: parentTaskId
+            )
+            JSONOut.printEncodable(NTaskSuccessResponse(task: summary))
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

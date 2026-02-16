@@ -1,5 +1,4 @@
 import ArgumentParser
-import Foundation
 
 struct Block: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -34,7 +33,7 @@ struct Block: AsyncParsableCommand {
                 JSONOut.error(
                     code: "LOST_LOCK",
                     message: "Lock token does not match; lock was stolen or expired",
-                    task: page.toSummary(),
+                    task: page.toTaskSummary(),
                     exitCode: ExitCodes.lostLock
                 )
             }
@@ -46,18 +45,14 @@ struct Block: AsyncParsableCommand {
                 nextCheck: nextCheck
             )
 
-            var taskSummary: [String: Any] = [
-                "page_id": page.pageId,
-                "task_id": taskId,
-                "status": "Blocked",
-                "blocker_reason": reason,
-                "unblock_action": unblockAction
-            ]
-            if let nc = nextCheck {
-                taskSummary["next_check_at"] = nc
-            }
-
-            JSONOut.success(["task": taskSummary])
+            JSONOut.printEncodable(NTaskSuccessResponse(task: TaskSummary(
+                pageId: page.pageId,
+                taskId: taskId,
+                status: "Blocked",
+                blockerReason: reason,
+                unblockAction: unblockAction,
+                nextCheckAt: nextCheck
+            )))
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

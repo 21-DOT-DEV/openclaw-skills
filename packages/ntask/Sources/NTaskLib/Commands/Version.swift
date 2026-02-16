@@ -6,6 +6,6 @@ struct Version: AsyncParsableCommand {
     )
 
     func run() async throws {
-        JSONOut.success(["version": NTaskCommand.configuration.version])
+        JSONOut.printEncodable(VersionInfo(version: NTaskVersion.current))
     }
 }
