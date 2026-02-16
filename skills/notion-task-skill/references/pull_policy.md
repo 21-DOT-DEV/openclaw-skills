@@ -1,5 +1,9 @@
 # Pull Policy — Deterministic Task Selection and Locking
 
+> **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
+> Binary update pending in Phase 1 Feature 1. Worker crons should remain
+> disabled until the binary ships.
+
 This document defines exactly how ntask selects, claims, and manages tasks.
 These rules are **deterministic** — given the same database state, every agent
 must make the same selection.
@@ -45,7 +49,7 @@ The **first** task after sorting is returned by `ntask next`.
    - `Assignee` → agent's Notion user (from `NOTION_AGENT_USER_ID` env var)
    - `Agent Run` → provided run ID
    - `Lock Token` → generated token
-   - `Lock Expires` → now + lease duration (default 20 minutes)
+   - `Lock Expires` → now + lease duration (default 15 minutes)
    - `Started At` → now (if property exists)
 3. **Verify the claim** by re-reading the page immediately after update.
 4. If the re-read shows a **different** `Lock Token`, return `CONFLICT`.
@@ -53,51 +57,36 @@ The **first** task after sorting is returned by `ntask next`.
 
 ### Heartbeat (heartbeat)
 
-1. Read the page and verify `Lock Token` matches the provided token.
+1. Read the page and verify `Lock Token` matches the stored token.
 2. If token does not match → return `LOST_LOCK`.
 3. If token matches, update:
-   - `Lock Expires` → now + lease duration (default 20 minutes)
+   - `Lock Expires` → now + lease duration (default 15 minutes)
 4. Return success with the new expiry time.
-
-### Complete (complete)
-
-1. Read the page and verify `Lock Token` matches the provided token.
-2. If token does not match → return `LOST_LOCK`.
-3. Update properties:
-   - `Status` → `Done`
-   - `Done At` → now (if property exists)
-   - Clear lock fields (set to null/empty):
-     - `Agent Run` → `""` (empty string)
-     - `Lock Token` → `""` (empty string)
-     - `Lock Expires` → null (clear the Date)
-4. Return success.
 
 ### Block (block)
 
-1. Read the page and verify `Lock Token` matches the provided token.
+1. Read the page and verify `Lock Token` matches the stored token.
 2. If token does not match → return `LOST_LOCK`.
 3. Update properties:
    - `Status` → `Blocked`
    - `Blocker Reason` → provided reason
    - `Unblock Action` → provided unblock action
-   - `Next Check At` → provided ISO 8601 timestamp (optional)
-   - Clear lock fields (set to null/empty):
-     - `Agent Run` → `""` (empty string)
-     - `Lock Token` → `""` (empty string)
-     - `Lock Expires` → null (clear the Date)
+   - Lock remains until natural expiry (not cleared on block).
 4. Return success.
 
 ### Review (review)
 
-1. Read the page and verify `Lock Token` matches the provided token.
+1. Read the page and verify `Lock Token` matches the stored token.
 2. If token does not match → return `LOST_LOCK`.
-3. Update properties:
+3. Check sub-task completion guard: if `Completed Sub-tasks < Dependencies` → return `INCOMPLETE_SUBTASKS`.
+4. Update properties:
    - `Status` → `Review`
+   - `Summary` → provided summary text
    - Clear lock fields (set to null/empty):
      - `Agent Run` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
      - `Lock Expires` → null (clear the Date)
-4. Return success.
+5. Return success.
 
 ### Approve (approve) — no lock required
 
@@ -120,7 +109,7 @@ No sub-task completion guard — reviewer authority overrides mechanical checks.
 1. Read the page and validate `Status` is `Review`.
 2. If status is not Review → return `MISCONFIGURED`.
 3. Update properties:
-   - `Status` → `Ready`
+   - `Status` → `In Progress`
    - Clear lock fields (set to null/empty):
      - `Agent Run` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
@@ -128,13 +117,16 @@ No sub-task completion guard — reviewer authority overrides mechanical checks.
 4. Add a comment with the `--reason` text (always, since reason is required).
 5. Return success.
 
-The task re-enters the Ready pool and will be picked up by the next `next` cycle.
+The task moves to In Progress with no active lock. Agent must re-claim via `ntask claim <task-id>` to resume work.
 
-### Cancel (cancel)
+### Cancel (cancel) — conditional lock
 
-1. Read the page and verify `Lock Token` matches the provided token.
-2. If token does not match → return `LOST_LOCK`.
-3. Update properties:
+Cancel from In Progress requires lock verification. Cancel from other non-terminal
+statuses (Blocked, Needs Help, Review, Ready, Backlog) is lock-free.
+
+1. If task is In Progress: verify `Lock Token` matches the stored token.
+   If token does not match → return `LOST_LOCK`.
+2. Update properties:
    - `Status` → `Canceled`
    - `Blocker Reason` → provided reason
    - Clear lock fields (set to null/empty):
@@ -145,14 +137,15 @@ The task re-enters the Ready pool and will be picked up by the next `next` cycle
 
 ## Error Codes
 
-| Code           | Exit | Meaning                                           |
-|----------------|------|---------------------------------------------------|
-| SUCCESS        | 0    | Operation completed successfully                  |
-| CONFLICT       | 2    | Another agent claimed the task; re-run `next`     |
-| MISCONFIGURED  | 3    | Missing env vars, bad database schema, or missing/misnamed properties |
-| CLI_MISSING    | 3    | `notion` binary not found in PATH                 |
-| LOST_LOCK      | 4    | Lock token mismatch; lock was stolen or expired   |
-| API_ERROR      | 5    | Notion API call failed (network, rate limit, etc) |
+| Code                | Exit | Meaning                                           |
+|---------------------|------|---------------------------------------------------|
+| SUCCESS             | 0    | Operation completed successfully                  |
+| NO_TASKS            | 10   | No eligible tasks in queue (clean exit)           |
+| CONFLICT            | 20   | Another agent claimed the task; re-run `next`     |
+| LOST_LOCK           | 21   | Lock token mismatch; lock was stolen or expired   |
+| API_ERROR           | 30   | Notion API call failed (network, rate limit, etc) |
+| MISCONFIGURED       | 40   | Missing env vars, bad database schema, CLI missing, or missing/misnamed properties |
+| INCOMPLETE_SUBTASKS | 41   | Sub-task completion guard failed                  |
 
 ## Invariants
 
@@ -161,5 +154,5 @@ The task re-enters the Ready pool and will be picked up by the next `next` cycle
 - On CONFLICT: the agent must run `next` again to find a different task.
 - On LOST_LOCK: the agent must either run `next` for a new task or surface
   the issue to the user.
-- Lease duration defaults to 20 minutes. Agents should heartbeat well before
-  expiry (e.g., every 10 minutes).
+- Lease duration defaults to 15 minutes. Agents should heartbeat well before
+  expiry (e.g., every 7 minutes).

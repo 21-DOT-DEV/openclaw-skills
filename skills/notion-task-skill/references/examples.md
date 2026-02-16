@@ -1,5 +1,9 @@
 # Examples — ntask Command Lines and JSON Outputs
 
+> **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
+> Binary update pending in Phase 1 Feature 1. Worker crons should remain
+> disabled until the binary ships.
+
 All commands output JSON by default. No flags needed. The binary path shown
 assumes the skill is installed at `<workspace>/skills/notion-task-skill/bin/ntask`.
 
@@ -54,7 +58,7 @@ ntask doctor
 ```json
 {
   "ok": false,
-  "error": { "code": "CLI_MISSING", "message": "notion binary not found in PATH" },
+  "error": { "code": "MISCONFIGURED", "message": "ntn binary not found in PATH" },
   "checks": {
     "notion_cli": { "found": false },
     "notion_token": { "available": true, "source": "environment" },
@@ -87,13 +91,12 @@ ntask next
 }
 ```
 
-### No Tasks Available
+### No Tasks Available (exit 10)
 
 ```json
 {
-  "ok": true,
-  "task": null,
-  "message": "No ready tasks found"
+  "ok": false,
+  "error": { "code": "NO_TASKS", "message": "No eligible tasks in queue" }
 }
 ```
 
@@ -102,9 +105,7 @@ ntask next
 Claim a task for this agent run:
 
 ```bash
-ntask claim PROJ-42 \
-  --run-id "run-abc-123" \
-  --lease-min 20
+ntask claim PROJ-42
 ```
 
 ### Success
@@ -123,7 +124,7 @@ ntask claim PROJ-42 \
 }
 ```
 
-### Conflict
+### Conflict (exit 20)
 
 ```json
 {
@@ -143,10 +144,7 @@ ntask claim PROJ-42 \
 Extend the lease on a claimed task:
 
 ```bash
-ntask heartbeat PROJ-42 \
-  --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000" \
-  --lease-min 20
+ntask heartbeat PROJ-42
 ```
 
 ### Success
@@ -162,7 +160,7 @@ ntask heartbeat PROJ-42 \
 }
 ```
 
-### Lost Lock
+### Lost Lock (exit 21)
 
 ```json
 {
@@ -176,41 +174,14 @@ ntask heartbeat PROJ-42 \
 }
 ```
 
-## complete
-
-Mark a task as done:
-
-```bash
-ntask complete PROJ-42 \
-  --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000"
-```
-
-### Success
-
-```json
-{
-  "ok": true,
-  "task": {
-    "page_id": "abc123-def456",
-    "task_id": "PROJ-42",
-    "status": "Done",
-    "done_at": "2025-01-15T15:05:00Z"
-  }
-}
-```
-
 ## block
 
 Mark a task as blocked:
 
 ```bash
 ntask block PROJ-42 \
-  --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000" \
   --reason "Waiting for API credentials from vendor" \
-  --unblock-action "User must provide API key in project settings" \
-  --next-check "2025-01-16T10:00:00Z"
+  --unblock-action "User must provide API key in project settings"
 ```
 
 ### Success
@@ -223,8 +194,7 @@ ntask block PROJ-42 \
     "task_id": "PROJ-42",
     "status": "Blocked",
     "blocker_reason": "Waiting for API credentials from vendor",
-    "unblock_action": "User must provide API key in project settings",
-    "next_check_at": "2025-01-16T10:00:00Z"
+    "unblock_action": "User must provide API key in project settings"
   }
 }
 ```
@@ -235,14 +205,14 @@ Create a new top-level task:
 
 ```bash
 ntask create --title "Implement auth flow" \
-  --priority 2 --class-of-service Standard
+  --priority 2 --class Standard
 ```
 
 Create a subtask linked to a parent:
 
 ```bash
 ntask create --title "Setup OAuth provider" \
-  --parent "TASK-99" --priority 2 --class-of-service Standard
+  --parent "TASK-99" --priority 2 --class Standard
 ```
 
 ### Success
@@ -253,7 +223,7 @@ ntask create --title "Setup OAuth provider" \
   "task": {
     "page_id": "new-page-id",
     "task_id": "TASK-100",
-    "status": "Ready",
+    "status": "Backlog",
     "parent_task_id": "TASK-99"
   }
 }
@@ -342,8 +312,7 @@ ntask comment PROJ-42 --text "Started investigating OAuth provider options"
 Move a task to Review for human inspection:
 
 ```bash
-ntask review PROJ-42 --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000"
+ntask review PROJ-42 --summary "Implemented OAuth provider integration with token refresh"
 ```
 
 ### Success
@@ -417,7 +386,7 @@ ntask rework PROJ-42 --reason "Needs markdown formatting in README"
   "task": {
     "page_id": "abc123-def456",
     "task_id": "PROJ-42",
-    "status": "Ready",
+    "status": "In Progress",
     "reason": "Needs markdown formatting in README"
   }
 }
@@ -442,8 +411,7 @@ ntask rework PROJ-42 --reason "Needs markdown formatting in README"
 Cancel a task:
 
 ```bash
-ntask cancel PROJ-42 --run-id "run-abc-123" \
-  --lock-token "550e8400-e29b-41d4-a716-446655440000" \
+ntask cancel PROJ-42 \
   --reason "Requirements changed, feature no longer needed"
 ```
 
@@ -469,10 +437,10 @@ Update task priority:
 ntask update PROJ-42 --priority 3
 ```
 
-Unblock a task (move from Blocked to Ready):
+Unblock a task (move from Blocked to In Progress):
 
 ```bash
-ntask update PROJ-42 --status Ready
+ntask unblock PROJ-42
 ```
 
 ### Success
