@@ -1,5 +1,9 @@
 # Agent Workflow
 
+> **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
+> Binary update pending in Phase 1 Feature 1. Worker crons should remain
+> disabled until the binary ships.
+
 This document defines the complete agent lifecycle for working with Notion tasks
 via the `ntask` CLI.
 
@@ -18,26 +22,28 @@ Flow: **triage (think) → workflow (execute)**
                     │  doctor  │
                     └────┬─────┘
                          │ ok
-                    ┌────▼─────┐    null    ┌──────────┐
-              ┌────►│   next   ├───────────►│  wait &  │
-              │     └────┬─────┘            │  retry   │
-              │          │ task found       └──────────┘
-              │     ┌────▼─────┐
-              │     │  claim   │
-              │     └────┬─────┘
-              │          │ claimed
-              │     ┌────▼─────────────┐
-              │     │   work loop      │
-              │     │  (heartbeat)     │
-              │     └──┬────┬────┬─────┘
-              │        │    │    │
-              │   ┌────▼┐ ┌▼───┐│┌──────┐┌──────┐
-              │   │done │ │blck│││review││cancel│
-              │   └──┬──┘ └─┬──┘│└──┬───┘└──┬───┘
-              │      │      │   │   │       │
-              └──────┴──────┴───┴───┴───────┘
-                      loop back to next
+                    ┌────▼─────┐  exit 10   ┌──────────┐
+                    │   next   ├──────────►│   stop   │
+                    └────┬─────┘            └──────────┘
+                         │ task found
+                    ┌────▼─────┐
+                    │  claim   │
+                    └────┬─────┘
+                         │ claimed
+                    ┌────▼─────────────┐
+                    │   work loop      │
+                    │  (heartbeat)     │
+                    └──┬──────┬────┬─────┘
+                       │      │    │
+                  ┌────▼┐ ┌─▼──┐┌▼──────┐
+                  │blck │ │rvw ││cancel│
+                  └──┬──┘ └─┬──┘└──┬───┘
+                     │      │      │
+                     └──────┴──────┘
+                        stop (one task per run)
 ```
+
+> **Worker agents**: one task per run. Do not loop back for more tasks.
 
 **Additional commands available at any time:**
 - `list` — see available tasks
@@ -54,7 +60,7 @@ Flow: **triage (think) → workflow (execute)**
 ntask doctor
 ```
 
-If any check fails (exit code 3), surface the issue to the user. Do not proceed.
+If any check fails (exit code 40 = MISCONFIGURED), surface the issue to the user. Do not proceed.
 
 ### 2. Next (find a task)
 
@@ -62,30 +68,23 @@ If any check fails (exit code 3), surface the issue to the user. Do not proceed.
 ntask next
 ```
 
-- **Task found:** proceed to claim.
-- **No tasks (`task: null`):** wait and retry using the backoff schedule below.
-
-**Next retry schedule (no tasks available):**
-
-| Attempt | Wait    |
-|---------|---------|
-| 1       | 30s     |
-| 2       | 60s     |
-| 3       | 120s    |
-| 4       | 240s    |
-| 5       | Surface to user: "No tasks available" |
+- **Task found (exit 0):** proceed to claim.
+- **No tasks (exit 10 = NO_TASKS):** exit cleanly — idle run, no error. Worker agents stop here (one task per run).
 
 ### 3. Claim
 
 ```bash
-ntask claim <task-id> --run-id <run-id> --lease-min 20
+ntask claim <task-id>
 ```
 
-- **Success:** save the `lock_token` and `lock_expires` from the response.
-- **CONFLICT (exit 2):** immediately re-run `next` for a different task. Do not retry the same task.
-- **API_ERROR (exit 5):** Retry the same claim up to 3× with 2s/4s/8s backoff
+Lock token, agent run UUID, and lease (default 15 minutes) are set internally by ntask.
+
+- **Success:** the response includes `lock_token` and `lock_expires`.
+- **CONFLICT (exit 20):** immediately re-run `next` for a different task. Do not retry the same task.
+- **API_ERROR (exit 30):** Retry the same claim up to 3× with exponential backoff
   (you don't yet hold a lock, so retrying is safe). If all retries fail, fall
   back to `next` for a different task.
+- **MISCONFIGURED (exit 40):** run `ntask doctor`, surface issue to user.
 
 ### 4. Work Loop
 
@@ -94,41 +93,44 @@ Perform the work described in the task's sub-tasks.
 **During work, heartbeat on a fixed cadence:**
 
 ```bash
-ntask heartbeat <task-id> --run-id <run-id> --lock-token <token> --lease-min 20
+ntask heartbeat <task-id>
 ```
 
-**Heartbeat cadence:** every `lease_min / 2` minutes (default: every 10 minutes).
+**Heartbeat cadence:** every 7 minutes (half of the default 15-minute lease).
 
 - **Success:** continue working. Note the updated `lock_expires`.
-- **LOST_LOCK (exit 4):** **stop work immediately**. Run `next` to get a new task.
-- **API_ERROR (exit 5):** follow the API error retry policy. If all retries fail, stop work and run `next`.
+- **LOST_LOCK (exit 21):** **stop work immediately**. Run `next` to get a new task.
+- **API_ERROR (exit 30):** follow the API error retry policy. If all retries fail, stop work and run `next`.
 
-### 5a. Complete (work succeeded)
+### 5a. Review (work succeeded)
+
+Workers always submit via `ntask review` — direct completion is not available.
 
 ```bash
-ntask complete <task-id> --run-id <run-id> --lock-token <token>
+ntask review <task-id> --summary "<what was done>"
 ```
 
-After completion, loop back to step 2 (`next`).
+- **Success:** task moves to Review. Lock is released. Worker stops (one task per run).
+- **INCOMPLETE_SUBTASKS (exit 41):** stop, report to human — sub-tasks not all complete.
+- **LOST_LOCK (exit 21):** stop work immediately.
+- **API_ERROR (exit 30):** follow the API error retry policy.
 
 ### 5b. Block (work cannot proceed)
 
 ```bash
-ntask block <task-id> --run-id <run-id> --lock-token <token> \
-  --reason "<why>" --unblock-action "<what needs to happen>"
+ntask block <task-id> --reason "<why>" --unblock-action "<what needs to happen>"
 ```
 
-Optionally include `--next-check <ISO8601>` to suggest when to revisit.
+After blocking, worker stops (one task per run).
 
-After blocking, loop back to step 2 (`next`).
-
-### 5c. Review (needs human judgment)
+### 5c. Cancel (requirements changed)
 
 ```bash
-ntask review <task-id> --run-id <run-id> --lock-token <token>
+ntask cancel <task-id> --reason "<why>"
 ```
 
-After submitting for review, loop back to step 2 (`next`). The lock is released.
+Conditional lock: required from In Progress, lock-free from other statuses.
+After canceling, worker stops (one task per run).
 
 ### 5d. Post-Review (human-driven, no lock required)
 
@@ -137,25 +139,29 @@ A human reviews the task and runs one of:
 ```bash
 ntask approve <task-id>                          # Review → Done
 ntask approve <task-id> --summary "LGTM"         # with comment
-ntask rework <task-id> --reason "<feedback>"     # Review → Ready
+ntask rework <task-id> --reason "<feedback>"     # Review → In Progress
 ```
 
 - **approve**: Marks the task Done. No sub-task guard — reviewer authority overrides.
-- **rework**: Moves back to Ready with a comment. The next `next` cycle picks it up.
+- **rework**: Moves back to In Progress (no lock) with a comment. Agent must re-claim via `ntask claim <task-id>` to resume work.
 
 ## Error Recovery Matrix
 
-| Exit Code | Error          | Agent Action                                         |
-|-----------|----------------|------------------------------------------------------|
-| 0         | (none)         | Parse JSON, continue                                 |
-| 2         | CONFLICT       | Run `next` for a different task                      |
-| 3         | MISCONFIGURED  | Run `doctor`, surface issue to user                  |
-| 4         | LOST_LOCK      | Stop current work, run `next`                        |
-| 5         | API_ERROR      | Retry 3x (2s/4s/8s backoff), then `block` the task  |
+| Exit Code | Error                | Agent Action                                         |
+|-----------|----------------------|------------------------------------------------------|
+| 0         | SUCCESS              | Parse JSON, continue                                 |
+| 10        | NO_TASKS             | Exit cleanly — idle run, no error                    |
+| 20        | CONFLICT             | Run `next` for a different task                      |
+| 21        | LOST_LOCK            | Stop current work, run `next`                        |
+| 30        | API_ERROR            | Retry 3× (exponential backoff), then `block` the task |
+| 40        | MISCONFIGURED        | Run `doctor`, surface issue to user                  |
+| 41        | INCOMPLETE_SUBTASKS  | Stop, report to human                                |
+
+**Unknown exit codes:** treat as API_ERROR (transient, retry with backoff) and log a warning.
 
 ## API Error Retry Policy
 
-For any exit code 5 (API_ERROR):
+For any exit code 30 (API_ERROR):
 
 | Attempt | Wait Before Retry |
 |---------|-------------------|
@@ -200,7 +206,7 @@ ntask create --title "Design auth schema" \
 ntask create --title "Implement auth endpoints" \
   --parent "TASK-42" --priority 2
 
-# 3. Work subtasks via the normal claim→work→complete loop
+# 3. Work subtasks via the normal claim→work→review loop
 # 4. Parent's Dependencies rollup tracks completion
 ```
 
@@ -213,8 +219,8 @@ ntask create --title "Implement auth endpoints" \
 - `ntask list --status 'In Progress'` — see what's in flight
 - `ntask comment PROJ-42 --text "Progress update: ..."` — leave audit trail
 - `ntask update PROJ-42 --priority 3` — re-prioritize if needed
-- `ntask review PROJ-42 ...` — request human review instead of completing
-- `ntask cancel PROJ-42 ...` — abandon if requirements changed
+- `ntask review PROJ-42 --summary "..."` — submit for human review
+- `ntask cancel PROJ-42 --reason "..."` — abandon if requirements changed
 
 ## Key Rules
 

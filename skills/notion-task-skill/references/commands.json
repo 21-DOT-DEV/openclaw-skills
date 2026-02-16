@@ -6,7 +6,7 @@
       "binary": "ntask",
       "description": "Validate environment, credentials, and CLI",
       "output_format": "json",
-      "exit_codes": { "0": "All checks pass", "3": "MISCONFIGURED" },
+      "exit_codes": { "0": "All checks pass", "40": "MISCONFIGURED" },
       "destructive": false,
       "idempotent": true,
       "examples": [
@@ -24,7 +24,7 @@
       "binary": "ntask",
       "description": "Get the highest-priority ready task",
       "output_format": "json",
-      "exit_codes": { "0": "Success (may return null)", "3": "MISCONFIGURED", "5": "API_ERROR" },
+      "exit_codes": { "0": "Success", "10": "NO_TASKS — no eligible tasks", "30": "API_ERROR", "40": "MISCONFIGURED" },
       "destructive": false,
       "idempotent": true,
       "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
@@ -45,18 +45,16 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "<task-id>": { "type": "string", "description": "TaskID to claim (positional, e.g. TASK-42)" },
-          "--run-id": { "type": "string", "description": "Unique agent run identifier" },
-          "--lease-min": { "type": "integer", "description": "Lease duration in minutes (default: 20)" }
+          "<task-id>": { "type": "string", "description": "TaskID to claim (positional, e.g. TASK-42)" }
         },
-        "required": ["<task-id>", "--run-id"]
+        "required": ["<task-id>"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task claimed",
-        "2": "CONFLICT — task already claimed by another agent",
-        "4": "LOST_LOCK — lock expired",
-        "5": "API_ERROR"
+        "20": "CONFLICT — task already claimed by another agent",
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": true,
       "idempotent": false,
@@ -65,7 +63,7 @@
       "examples": [
         {
           "intent": "Claim a task for this agent run",
-          "command": "ntask claim TASK-42 --run-id run-001 --lease-min 20",
+          "command": "ntask claim TASK-42",
           "output_format": "json",
           "example_output": { "ok": true, "task": { "status": "In Progress", "lock_token": "uuid-lock-token" } },
           "exit_code": 0
@@ -79,17 +77,15 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "<task-id>": { "type": "string", "description": "TaskID to heartbeat (positional)" },
-          "--run-id": { "type": "string", "description": "Agent run identifier" },
-          "--lock-token": { "type": "string", "description": "Lock token from claim" },
-          "--lease-min": { "type": "integer", "description": "Lease duration in minutes (default: 20)" }
+          "<task-id>": { "type": "string", "description": "TaskID to heartbeat (positional)" }
         },
-        "required": ["<task-id>", "--run-id", "--lock-token"]
+        "required": ["<task-id>"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success — lease extended",
-        "4": "LOST_LOCK — lock expired or stolen"
+        "21": "LOST_LOCK — lock expired or stolen",
+        "30": "API_ERROR"
       },
       "destructive": true,
       "idempotent": true,
@@ -98,44 +94,9 @@
       "examples": [
         {
           "intent": "Extend lock on a claimed task",
-          "command": "ntask heartbeat TASK-42 --run-id run-001 --lock-token uuid-lock-token --lease-min 20",
+          "command": "ntask heartbeat TASK-42",
           "output_format": "json",
           "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "In Progress" } },
-          "exit_code": 0
-        }
-      ]
-    },
-    {
-      "name": "complete",
-      "binary": "ntask",
-      "description": "Mark a task as Done",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "<task-id>": { "type": "string", "description": "TaskID to complete (positional)" },
-          "--run-id": { "type": "string", "description": "Agent run identifier" },
-          "--lock-token": { "type": "string", "description": "Lock token from claim" }
-        },
-        "required": ["<task-id>", "--run-id", "--lock-token"]
-      },
-      "output_format": "json",
-      "exit_codes": {
-        "0": "Success — task marked Done",
-        "3": "INCOMPLETE_SUBTASKS — open sub-tasks remain",
-        "4": "LOST_LOCK",
-        "5": "API_ERROR"
-      },
-      "destructive": true,
-      "idempotent": false,
-      "requires_confirmation": false,
-      "retry": { "max_attempts": 3, "backoff": "exponential", "initial_delay_ms": 2000 },
-      "capability": "lifecycle",
-      "examples": [
-        {
-          "intent": "Mark a task as completed",
-          "command": "ntask complete TASK-42 --run-id run-001 --lock-token uuid-lock-token",
-          "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Done" } },
           "exit_code": 0
         }
       ]
@@ -148,18 +109,17 @@
         "type": "object",
         "properties": {
           "<task-id>": { "type": "string", "description": "TaskID to block (positional)" },
-          "--run-id": { "type": "string", "description": "Agent run identifier" },
-          "--lock-token": { "type": "string", "description": "Lock token from claim" },
           "--reason": { "type": "string", "description": "Reason for blocking" },
           "--unblock-action": { "type": "string", "description": "What needs to happen to unblock" }
         },
-        "required": ["<task-id>", "--run-id", "--lock-token", "--reason", "--unblock-action"]
+        "required": ["<task-id>", "--reason", "--unblock-action"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task blocked",
-        "4": "LOST_LOCK",
-        "5": "API_ERROR"
+        "21": "LOST_LOCK",
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": true,
       "idempotent": false,
@@ -169,7 +129,7 @@
       "examples": [
         {
           "intent": "Block a task with a reason",
-          "command": "ntask block TASK-42 --run-id run-001 --lock-token uuid-lock-token --reason \"Waiting on API access\" --unblock-action \"Provision API key\"",
+          "command": "ntask block TASK-42 --reason \"Waiting on API access\" --unblock-action \"Provision API key\"",
           "output_format": "json",
           "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Blocked" } },
           "exit_code": 0
@@ -184,15 +144,16 @@
         "type": "object",
         "properties": {
           "--title": { "type": "string", "description": "Task title" },
-          "--priority": { "type": "integer", "description": "Priority level (1=highest)" }
+          "--priority": { "type": "integer", "description": "Priority level (1=highest)" },
+          "--class": { "type": "string", "description": "Class of service: Expedite, Fixed Date, Standard, Intangible" }
         },
         "required": ["--title"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task created",
-        "3": "MISCONFIGURED",
-        "5": "API_ERROR"
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": true,
       "idempotent": false,
@@ -205,7 +166,7 @@
           "intent": "Create a new task",
           "command": "ntask create --title \"Fix login bug\" --priority 2",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "new-456", "task_id": "TASK-99", "status": "Ready", "priority": 2 } },
+          "example_output": { "ok": true, "task": { "page_id": "new-456", "task_id": "TASK-99", "status": "Backlog", "priority": 2 } },
           "exit_code": 0
         }
       ]
@@ -223,8 +184,8 @@
       "output_format": "json",
       "exit_codes": {
         "0": "Success",
-        "3": "MISCONFIGURED",
-        "5": "API_ERROR"
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": false,
       "idempotent": true,
@@ -258,8 +219,8 @@
       "output_format": "json",
       "exit_codes": {
         "0": "Success",
-        "3": "MISCONFIGURED",
-        "5": "API_ERROR"
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": false,
       "idempotent": true,
@@ -289,7 +250,7 @@
       "output_format": "json",
       "exit_codes": {
         "0": "Success",
-        "5": "API_ERROR"
+        "30": "API_ERROR"
       },
       "destructive": true,
       "idempotent": false,
@@ -311,20 +272,22 @@
     {
       "name": "review",
       "binary": "ntask",
-      "description": "Move task to Review for human inspection",
+      "description": "Move task to Review for human inspection (--summary required)",
       "parameters": {
         "type": "object",
         "properties": {
           "<task-id>": { "type": "string", "description": "TaskID to review (positional)" },
-          "--run-id": { "type": "string", "description": "Agent run identifier" },
-          "--lock-token": { "type": "string", "description": "Lock token from claim" }
+          "--summary": { "type": "string", "description": "Summary of work done (required)" }
         },
-        "required": ["<task-id>", "--run-id", "--lock-token"]
+        "required": ["<task-id>", "--summary"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task moved to Review",
-        "4": "LOST_LOCK"
+        "21": "LOST_LOCK",
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED",
+        "41": "INCOMPLETE_SUBTASKS — sub-tasks not all complete"
       },
       "destructive": true,
       "idempotent": false,
@@ -334,7 +297,7 @@
       "examples": [
         {
           "intent": "Submit task for human review",
-          "command": "ntask review TASK-42 --run-id run-001 --lock-token uuid-lock-token",
+          "command": "ntask review TASK-42 --summary \"Implemented auth flow with OAuth provider\"",
           "output_format": "json",
           "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Review" } },
           "exit_code": 0
@@ -356,8 +319,8 @@
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task approved and marked Done",
-        "3": "MISCONFIGURED — task not in Review status",
-        "5": "API_ERROR"
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED — task not in Review status"
       },
       "destructive": true,
       "idempotent": false,
@@ -388,9 +351,9 @@
       },
       "output_format": "json",
       "exit_codes": {
-        "0": "Success — task sent back to Ready",
-        "3": "MISCONFIGURED — task not in Review status",
-        "5": "API_ERROR"
+        "0": "Success — task sent back to In Progress",
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED — task not in Review status"
       },
       "destructive": true,
       "idempotent": false,
@@ -402,7 +365,7 @@
           "intent": "Send task back for rework with feedback",
           "command": "ntask rework TASK-42 --reason \"Needs markdown formatting in README\"",
           "output_format": "json",
-          "example_output": { "ok": true, "task": { "page_id": "abc-123", "task_id": "TASK-42", "status": "Ready" } },
+          "example_output": { "ok": true, "task": { "page_id": "abc-123", "task_id": "TASK-42", "status": "In Progress" } },
           "exit_code": 0
         }
       ]
@@ -410,21 +373,21 @@
     {
       "name": "cancel",
       "binary": "ntask",
-      "description": "Cancel a task with reason (requires lock)",
+      "description": "Cancel a task with reason (conditional lock: required from In Progress, lock-free from other statuses)",
       "parameters": {
         "type": "object",
         "properties": {
           "<task-id>": { "type": "string", "description": "TaskID to cancel (positional)" },
-          "--run-id": { "type": "string", "description": "Agent run identifier" },
-          "--lock-token": { "type": "string", "description": "Lock token from claim" },
           "--reason": { "type": "string", "description": "Cancellation reason" }
         },
-        "required": ["<task-id>", "--run-id", "--lock-token", "--reason"]
+        "required": ["<task-id>", "--reason"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success — task cancelled",
-        "4": "LOST_LOCK"
+        "21": "LOST_LOCK (only from In Progress)",
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": true,
       "idempotent": false,
@@ -434,7 +397,7 @@
       "examples": [
         {
           "intent": "Cancel a task that is no longer needed",
-          "command": "ntask cancel TASK-42 --run-id run-001 --lock-token uuid-lock-token --reason \"Duplicate of TASK-40\"",
+          "command": "ntask cancel TASK-42 --reason \"Duplicate of TASK-40\"",
           "output_format": "json",
           "example_output": { "ok": true, "task": { "page_id": "abc-123", "status": "Canceled" } },
           "exit_code": 0
@@ -444,21 +407,21 @@
     {
       "name": "update",
       "binary": "ntask",
-      "description": "Update task properties (priority, status, class). Cannot set Review — use review command.",
+      "description": "Update task properties (priority, class).",
       "parameters": {
         "type": "object",
         "properties": {
           "<task-id>": { "type": "string", "description": "TaskID to update (positional)" },
           "--priority": { "type": "integer", "description": "New priority (1-3)" },
-          "--class-of-service": { "type": "string", "description": "Expedite|Fixed Date|Standard|Intangible" },
-          "--status": { "type": "string", "description": "New status (not Review)" }
+          "--class": { "type": "string", "description": "Expedite|Fixed Date|Standard|Intangible" }
         },
         "required": ["<task-id>"]
       },
       "output_format": "json",
       "exit_codes": {
         "0": "Success",
-        "5": "API_ERROR"
+        "30": "API_ERROR",
+        "40": "MISCONFIGURED"
       },
       "destructive": true,
       "idempotent": true,
