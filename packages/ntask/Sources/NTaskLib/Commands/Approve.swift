@@ -1,5 +1,4 @@
 import ArgumentParser
-import Foundation
 
 struct Approve: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -21,7 +20,7 @@ struct Approve: AsyncParsableCommand {
                 JSONOut.error(
                     code: "MISCONFIGURED",
                     message: "Task must be in Review status to approve (current: \(page.status ?? "unknown"))",
-                    task: page.toSummary(),
+                    task: page.toTaskSummary(),
                     exitCode: ExitCodes.misconfigured
                 )
             }
@@ -36,14 +35,12 @@ struct Approve: AsyncParsableCommand {
                 try await NotionCLI.addComment(pageId: page.pageId, text: summary)
             }
 
-            JSONOut.success([
-                "task": [
-                    "page_id": page.pageId,
-                    "task_id": taskId,
-                    "status": "Done",
-                    "done_at": doneAt
-                ]
-            ])
+            JSONOut.printEncodable(NTaskSuccessResponse(task: TaskSummary(
+                pageId: page.pageId,
+                taskId: taskId,
+                status: "Done",
+                doneAt: doneAt
+            )))
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

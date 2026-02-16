@@ -1,5 +1,4 @@
 import ArgumentParser
-import Foundation
 
 struct Next: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -15,9 +14,9 @@ struct Next: AsyncParsableCommand {
             let sorted = PullPolicy.sort(eligible)
 
             if let best = sorted.first {
-                JSONOut.success(["task": best.toSummary()])
+                JSONOut.printEncodable(NTaskSuccessResponse(task: best.toTaskSummary()))
             } else {
-                JSONOut.success(["task": NSNull(), "message": "No ready tasks found"])
+                JSONOut.printEncodable(NTaskSuccessResponse<TaskSummary>(task: nil, message: "No ready tasks found"))
             }
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)

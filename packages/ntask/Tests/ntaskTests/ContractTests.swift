@@ -172,6 +172,7 @@ struct ContractTests {
             notionCli: NotionCliCheck(found: true, version: "0.6.0"),
             notionToken: NotionTokenCheck(available: true, source: "environment"),
             envNotionTasksDbId: true,
+            envNotionAgentUserId: true,
             dbAccessible: true
         )
         let data = try encoder.encode(checks)
@@ -190,6 +191,7 @@ struct ContractTests {
             notionCli: NotionCliCheck(found: false, version: nil),
             notionToken: NotionTokenCheck(available: false, source: nil),
             envNotionTasksDbId: true,
+            envNotionAgentUserId: nil,
             dbAccessible: nil
         )
         let data = try encoder.encode(checks)
@@ -208,6 +210,7 @@ struct ContractTests {
             notionCli: NotionCliCheck(found: true, version: "0.6.0"),
             notionToken: NotionTokenCheck(available: true, source: "system keyring"),
             envNotionTasksDbId: true,
+            envNotionAgentUserId: true,
             dbAccessible: true
         )
         let data = try encoder.encode(checks)
@@ -223,6 +226,7 @@ struct ContractTests {
             notionCli: NotionCliCheck(found: true, version: "0.6.0"),
             notionToken: NotionTokenCheck(available: false, source: nil),
             envNotionTasksDbId: false,
+            envNotionAgentUserId: false,
             dbAccessible: nil
         )
         let data = try encoder.encode(checks)
@@ -420,5 +424,138 @@ struct ContractTests {
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         #expect(json["parent_task_id"] as? String == "T-1")
         #expect(json["reason"] as? String == "No longer needed")
+    }
+
+    // MARK: - Nil-Omission Contract
+
+    @Test("TaskSummary omits nil fields from JSON")
+    func taskSummaryNilOmission() throws {
+        let task = TaskSummary(pageId: "p1", status: "Ready")
+        let data = try encoder.encode(task)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["page_id"] as? String == "p1")
+        #expect(json["status"] as? String == "Ready")
+        // Nil fields must NOT appear as keys
+        #expect(json.keys.contains("task_id") == false)
+        #expect(json.keys.contains("priority") == false)
+        #expect(json.keys.contains("class") == false)
+        #expect(json.keys.contains("agent_run") == false)
+        #expect(json.keys.contains("lock_token") == false)
+        #expect(json.keys.contains("lock_expires") == false)
+        #expect(json.keys.contains("started_at") == false)
+        #expect(json.keys.contains("done_at") == false)
+        #expect(json.keys.contains("blocker_reason") == false)
+        #expect(json.keys.contains("unblock_action") == false)
+        #expect(json.keys.contains("next_check_at") == false)
+        #expect(json.keys.contains("completed_subtasks") == false)
+        #expect(json.keys.contains("parent_task_id") == false)
+        #expect(json.keys.contains("reason") == false)
+    }
+
+    @Test("NTaskSuccessResponse omits nil envelope fields")
+    func successResponseOmitsNilEnvelopeFields() throws {
+        let response = NTaskSuccessResponse(task: TaskSummary(pageId: "p1"))
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        #expect(json["task"] != nil)
+        #expect(json.keys.contains("message") == false)
+        #expect(json.keys.contains("checks") == false)
+        #expect(json.keys.contains("version") == false)
+    }
+
+    @Test("Success response with nil task omits task key")
+    func successResponseNilTaskOmitsKey() throws {
+        let response = NTaskSuccessResponse<TaskSummary>(task: nil, message: "No tasks")
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        #expect(json["message"] as? String == "No tasks")
+        #expect(json.keys.contains("task") == false)
+    }
+
+    @Test("Error response without task omits task key")
+    func errorResponseNilTaskOmitsKey() throws {
+        let response = NTaskErrorResponse(
+            error: NTaskErrorPayload(code: "API_ERROR", message: "Timeout")
+        )
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == false)
+        #expect(json.keys.contains("task") == false)
+    }
+
+    // MARK: - Concise TaskSummary Init
+
+    @Test("Concise TaskSummary init matches full init with explicit nils")
+    func conciseInitMatchesFullInit() throws {
+        let concise = TaskSummary(pageId: "p1", status: "Done", doneAt: "2026-01-01T00:00:00Z")
+        let full = TaskSummary(
+            pageId: "p1", taskId: nil, status: "Done", priority: nil,
+            taskClass: nil, agentRun: nil, lockToken: nil, lockExpires: nil,
+            startedAt: nil, doneAt: "2026-01-01T00:00:00Z", blockerReason: nil,
+            unblockAction: nil, nextCheckAt: nil, completedSubtasks: nil,
+            parentTaskId: nil, reason: nil
+        )
+        #expect(concise == full)
+        let conciseData = try encoder.encode(concise)
+        let fullData = try encoder.encode(full)
+        #expect(conciseData == fullData)
+    }
+
+    // MARK: - TaskSummary Equatable
+
+    @Test("TaskSummary Equatable: identical summaries are equal")
+    func taskSummaryEquatable() {
+        let a = TaskSummary(pageId: "p1", status: "Ready", priority: 2)
+        let b = TaskSummary(pageId: "p1", status: "Ready", priority: 2)
+        #expect(a == b)
+    }
+
+    @Test("TaskSummary Equatable: different field makes unequal")
+    func taskSummaryNotEqual() {
+        let a = TaskSummary(pageId: "p1", status: "Ready")
+        let b = TaskSummary(pageId: "p1", status: "Done")
+        #expect(a != b)
+    }
+
+    // MARK: - DoctorChecks envNotionAgentUserId
+
+    @Test("DoctorChecks encodes env_NOTION_AGENT_USER_ID")
+    func doctorChecksAgentUserId() throws {
+        let checks = DoctorChecks(
+            notionCli: NotionCliCheck(found: true, version: "0.6.0"),
+            notionToken: NotionTokenCheck(available: true, source: "environment"),
+            envNotionTasksDbId: true,
+            envNotionAgentUserId: true,
+            dbAccessible: true
+        )
+        let data = try encoder.encode(checks)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["env_NOTION_AGENT_USER_ID"] as? Bool == true)
+    }
+
+    // MARK: - DoctorErrorResponse
+
+    @Test("DoctorErrorResponse round-trips through JSON")
+    func doctorErrorResponseRoundTrip() throws {
+        let checks = DoctorChecks(
+            notionCli: NotionCliCheck(found: false, version: nil),
+            notionToken: NotionTokenCheck(available: false, source: nil),
+            envNotionTasksDbId: false,
+            envNotionAgentUserId: false,
+            dbAccessible: nil
+        )
+        let response = DoctorErrorResponse(
+            error: NTaskErrorPayload(code: "CLI_MISSING", message: "ntn not found"),
+            checks: checks
+        )
+        let data = try encoder.encode(response)
+        let decoded = try decoder.decode(DoctorErrorResponse.self, from: data)
+        #expect(decoded.ok == false)
+        #expect(decoded.error.code == "CLI_MISSING")
+        #expect(decoded.error.message == "ntn not found")
+        #expect(decoded.checks.notionCli?.found == false)
+        #expect(decoded.checks.envNotionAgentUserId == false)
     }
 }

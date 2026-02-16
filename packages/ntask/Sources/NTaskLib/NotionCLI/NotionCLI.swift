@@ -1,19 +1,22 @@
 import Foundation
 
-// Assumed notion-cli command shapes based on salmonumbrella/notion-cli README.
-// The adapter calls `notion` (from PATH) with NOTION_OUTPUT=json set in the
+// Assumed ntn (notion-cli) command shapes based on salmonumbrella/notion-cli README.
+// The adapter calls `ntn` (from PATH) with NOTION_OUTPUT=json set in the
 // process environment for every invocation.
 //
 // Key commands used:
-//   notion db query <db-id> --filter '<json>' --all --results-only --output json
-//   notion page get <page-id> --output json
-//   notion page update <page-id> --properties '<json>' --output json
-//   notion auth status --output json
+//   ntn db query <db-id> --filter '<json>' --all --results-only --output json
+//   ntn page get <page-id> --output json
+//   ntn page update <page-id> --properties '<json>' --output json
+//   ntn auth status --output json
 //
 // TODO: Verify exact flag names and JSON shapes against notion-cli v0.6+.
 //       If notion-cli changes its interface, update the templates below.
 
 enum NotionCLI {
+
+    /// The binary name for notion-cli (renamed from `notion` to `ntn` in v0.5.21).
+    private static let binaryName = "ntn"
 
     // MARK: - Environment
 
@@ -38,7 +41,7 @@ enum NotionCLI {
     static func checkAuthStatus() async -> String? {
         do {
             let result = try await ProcessRunner.run(
-                executable: "notion",
+                executable: binaryName,
                 arguments: ["auth", "status", "-o", "json"],
                 environment: notionEnv
             )
@@ -55,18 +58,18 @@ enum NotionCLI {
     }
 
     static func checkVersion() async throws -> String {
-        let found = await ProcessRunner.findExecutable("notion")
+        let found = await ProcessRunner.findExecutable(binaryName)
         guard found else {
-            throw NTaskError.cliMissing("notion binary not found in PATH")
+            throw NTaskError.cliMissing("ntn binary not found in PATH")
         }
 
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["--version"],
             environment: notionEnv
         )
         guard result.exitCode == 0 else {
-            throw NTaskError.cliMissing("notion --version failed: \(redactStderr(result.stderr))")
+            throw NTaskError.cliMissing("ntn --version failed: \(redactStderr(result.stderr))")
         }
         return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -74,7 +77,7 @@ enum NotionCLI {
     static func checkDatabaseAccess() async throws {
         let dbId = try databaseId
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["db", "query", dbId, "--limit", "1", "--results-only"],
             environment: notionEnv
         )
@@ -94,7 +97,7 @@ enum NotionCLI {
             "status": ["equals": "Ready"]
         ])
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["db", "query", dbId, "--filter", filter, "--all", "--results-only"],
             environment: notionEnv
         )
@@ -117,7 +120,7 @@ enum NotionCLI {
             "unique_id": ["equals": number]
         ])
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["db", "query", dbId, "--filter", filter, "--results-only"],
             environment: notionEnv
         )
@@ -136,7 +139,7 @@ enum NotionCLI {
     /// Retrieve a page by its Notion page ID.
     static func retrievePage(_ pageId: String) async throws -> NotionPage {
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["page", "get", pageId],
             environment: notionEnv
         )
@@ -227,7 +230,7 @@ enum NotionCLI {
             throw NTaskError.apiError("Failed to serialize properties JSON")
         }
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["page", "create", "--parent", dbId, "--parent-type", "database", "--properties", jsonStr],
             environment: notionEnv
         )
@@ -258,7 +261,7 @@ enum NotionCLI {
             arguments += ["--limit", String(limit)]
         }
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: arguments,
             environment: notionEnv
         )
@@ -273,7 +276,7 @@ enum NotionCLI {
     /// Add a comment to a page.
     static func addComment(pageId: String, text: String) async throws {
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["comment", "add", pageId, "--text", text],
             environment: notionEnv
         )
@@ -364,7 +367,7 @@ enum NotionCLI {
             throw NTaskError.apiError("Failed to serialize properties JSON")
         }
         let result = try await ProcessRunner.run(
-            executable: "notion",
+            executable: binaryName,
             arguments: ["page", "update", pageId, "--properties", jsonStr],
             environment: notionEnv
         )

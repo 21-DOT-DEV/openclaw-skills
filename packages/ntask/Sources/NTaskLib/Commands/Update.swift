@@ -75,7 +75,7 @@ struct Update: AsyncParsableCommand {
 
             // Re-read to get updated state
             let updated = try await NotionCLI.resolveTaskIdToPage(taskId)
-            JSONOut.success(["task": updated.toSummary()])
+            JSONOut.printEncodable(NTaskSuccessResponse(task: updated.toTaskSummary()))
         } catch let error as NTaskError {
             JSONOut.error(code: error.code, message: error.message, exitCode: error.exitCode)
         } catch {

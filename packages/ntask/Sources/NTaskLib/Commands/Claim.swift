@@ -37,22 +37,30 @@ struct Claim: AsyncParsableCommand {
 
             switch verifyResult {
             case .success:
-                var summary = verified.toSummary()
-                summary["lock_token"] = lockToken
-                summary["lock_expires"] = lockedUntil
-                JSONOut.success(["task": summary])
+                let summary = TaskSummary(
+                    pageId: verified.pageId,
+                    taskId: verified.taskId,
+                    status: verified.status,
+                    priority: verified.priority,
+                    taskClass: verified.classOfService,
+                    agentRun: verified.agentRunId,
+                    lockToken: lockToken,
+                    lockExpires: lockedUntil,
+                    startedAt: verified.startedAt
+                )
+                JSONOut.printEncodable(NTaskSuccessResponse(task: summary))
             case .conflict:
                 JSONOut.error(
                     code: "CONFLICT",
                     message: "Task was claimed by another agent",
-                    task: verified.toSummary(),
+                    task: verified.toTaskSummary(),
                     exitCode: ExitCodes.conflict
                 )
             case .lostLock:
                 JSONOut.error(
                     code: "LOST_LOCK",
                     message: "Lock was lost during claim verification",
-                    task: verified.toSummary(),
+                    task: verified.toTaskSummary(),
                     exitCode: ExitCodes.lostLock
                 )
             }

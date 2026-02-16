@@ -129,6 +129,27 @@ struct PullPolicySortTests {
         let page = makePage(lockToken: "tok-123", lockExpires: past)
         #expect(PullPolicy.isEligible(page) == true)
     }
+
+    // MARK: - toTaskSummary Mapping
+
+    @Test("toTaskSummary maps NotionPage properties to TaskSummary")
+    func toTaskSummaryMapping() {
+        let page = makePage(
+            pageId: "page-abc",
+            status: "Ready",
+            priority: 3,
+            classOfService: "Expedite"
+        )
+        let summary = page.toTaskSummary()
+        #expect(summary.pageId == "page-abc")
+        #expect(summary.status == "Ready")
+        #expect(summary.priority == 3)
+        #expect(summary.taskClass == "Expedite")
+        #expect(summary.lockToken == nil)
+        #expect(summary.lockExpires == nil)
+        #expect(summary.parentTaskId == nil)
+        #expect(summary.reason == nil)
+    }
 }
 
 @Suite("Lock Verification Tests")

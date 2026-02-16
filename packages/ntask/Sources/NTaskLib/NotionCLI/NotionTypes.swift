@@ -171,21 +171,23 @@ struct NotionPage: Decodable {
         }
     }
 
-    func toSummary() -> [String: Any] {
-        var dict: [String: Any] = ["page_id": pageId]
-        if let v = taskId { dict["task_id"] = v }
-        if let v = status { dict["status"] = v }
-        if let v = priority { dict["priority"] = v }
-        if let v = classOfService { dict["class"] = v }
-        if let v = agentRunId { dict["agent_run"] = v }
-        if let v = lockToken { dict["lock_token"] = v }
-        if let v = lockExpires { dict["lock_expires"] = v }
-        if let v = blockerReason { dict["blocker_reason"] = v }
-        if let v = unblockAction { dict["unblock_action"] = v }
-        if let v = startedAt { dict["started_at"] = v }
-        if let v = doneAt { dict["done_at"] = v }
-        if let v = completedSubtasks { dict["completed_subtasks"] = v }
-        return dict
+    func toTaskSummary() -> TaskSummary {
+        TaskSummary(
+            pageId: pageId,
+            taskId: taskId,
+            status: status,
+            priority: priority,
+            taskClass: classOfService,
+            agentRun: agentRunId,
+            lockToken: lockToken,
+            lockExpires: lockExpires,
+            startedAt: startedAt,
+            doneAt: doneAt,
+            blockerReason: blockerReason,
+            unblockAction: unblockAction,
+            completedSubtasks: completedSubtasks
+        )
     }
+
 }
 
