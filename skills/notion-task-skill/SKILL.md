@@ -11,8 +11,7 @@ description: >
 # Notion Task Skill
 
 > **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
-> Binary update pending in Phase 1 Feature 1. Worker crons should remain
-> disabled until the binary ships.
+> Binary v0.4.0 shipped 2026-02-17 — all documented commands now match the binary.
 
 This skill gives an OpenClaw agent the ability to pull, claim, work on, and
 submit tasks stored in a Notion database. Every interaction with Notion goes

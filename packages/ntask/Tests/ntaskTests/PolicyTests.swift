@@ -218,48 +218,72 @@ struct LockVerificationTests {
 @Suite("NTaskError Mapping Tests")
 struct NTaskErrorMappingTests {
 
-    @Test("CONFLICT maps to exit code 2")
+    @Test("CONFLICT maps to exit code 20")
     func conflictExitCode() {
         let err = NTaskError.conflict("test")
-        #expect(err.exitCode == 2)
+        #expect(err.exitCode == 20)
         #expect(err.code == "CONFLICT")
         #expect(err.message == "test")
     }
 
-    @Test("MISCONFIGURED maps to exit code 3")
+    @Test("MISCONFIGURED maps to exit code 40")
     func misconfiguredExitCode() {
         let err = NTaskError.misconfigured("bad config")
-        #expect(err.exitCode == 3)
+        #expect(err.exitCode == 40)
         #expect(err.code == "MISCONFIGURED")
     }
 
-    @Test("CLI_MISSING maps to exit code 3")
+    @Test("CLI_MISSING maps to exit code 40")
     func cliMissingExitCode() {
         let err = NTaskError.cliMissing("not found")
-        #expect(err.exitCode == 3)
+        #expect(err.exitCode == 40)
         #expect(err.code == "CLI_MISSING")
     }
 
-    @Test("LOST_LOCK maps to exit code 4")
+    @Test("LOST_LOCK maps to exit code 21")
     func lostLockExitCode() {
         let err = NTaskError.lostLock("stolen")
-        #expect(err.exitCode == 4)
+        #expect(err.exitCode == 21)
         #expect(err.code == "LOST_LOCK")
     }
 
-    @Test("API_ERROR maps to exit code 5")
+    @Test("API_ERROR maps to exit code 30")
     func apiErrorExitCode() {
         let err = NTaskError.apiError("timeout")
-        #expect(err.exitCode == 5)
+        #expect(err.exitCode == 30)
         #expect(err.code == "API_ERROR")
+    }
+
+    @Test("NO_TASKS maps to exit code 10")
+    func noTasksExitCode() {
+        let err = NTaskError.noTasks("queue empty")
+        #expect(err.exitCode == 10)
+        #expect(err.code == "NO_TASKS")
+        #expect(err.message == "queue empty")
+    }
+
+    @Test("INCOMPLETE_SUBTASKS maps to exit code 41")
+    func incompleteSubtasksExitCode() {
+        let err = NTaskError.incompleteSubtasks("2/5 open")
+        #expect(err.exitCode == 41)
+        #expect(err.code == "INCOMPLETE_SUBTASKS")
+        #expect(err.message == "2/5 open")
     }
 
     @Test("ExitCodes constants match NTaskError values")
     func exitCodesConsistency() {
         #expect(ExitCodes.success == 0)
+        #expect(ExitCodes.noTasks == 10)
+        #expect(ExitCodes.conflict == 20)
+        #expect(ExitCodes.lostLock == 21)
+        #expect(ExitCodes.apiError == 30)
+        #expect(ExitCodes.misconfigured == 40)
+        #expect(ExitCodes.incompleteSubtasks == 41)
         #expect(ExitCodes.conflict == NTaskError.conflict("").exitCode)
         #expect(ExitCodes.misconfigured == NTaskError.misconfigured("").exitCode)
         #expect(ExitCodes.lostLock == NTaskError.lostLock("").exitCode)
         #expect(ExitCodes.apiError == NTaskError.apiError("").exitCode)
+        #expect(ExitCodes.noTasks == NTaskError.noTasks("").exitCode)
+        #expect(ExitCodes.incompleteSubtasks == NTaskError.incompleteSubtasks("").exitCode)
     }
 }

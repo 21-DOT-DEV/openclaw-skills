@@ -8,12 +8,6 @@ struct Block: AsyncParsableCommand {
     @Argument(help: "TaskID to block")
     var taskId: String
 
-    @Option(name: .long, help: "Unique run identifier")
-    var runId: String
-
-    @Option(name: .long, help: "Lock token from claim")
-    var lockToken: String
-
     @Option(name: .long, help: "Reason the task is blocked")
     var reason: String
 
@@ -25,10 +19,11 @@ struct Block: AsyncParsableCommand {
 
     func run() async throws {
         do {
+            let state = try LockStateManager.load(expectedTaskId: taskId)
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
 
             // Verify current lock
-            let lockCheck = LockVerifier.verifyLock(page: page, expectedToken: lockToken)
+            let lockCheck = LockVerifier.verifyLock(page: page, expectedToken: state.lockToken)
             guard case .success = lockCheck else {
                 JSONOut.error(
                     code: "LOST_LOCK",
@@ -44,6 +39,8 @@ struct Block: AsyncParsableCommand {
                 unblockAction: unblockAction,
                 nextCheck: nextCheck
             )
+
+            try LockStateManager.clear()
 
             JSONOut.printEncodable(NTaskSuccessResponse(task: TaskSummary(
                 pageId: page.pageId,

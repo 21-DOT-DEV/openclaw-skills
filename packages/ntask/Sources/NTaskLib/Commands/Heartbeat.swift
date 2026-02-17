@@ -8,21 +8,13 @@ struct Heartbeat: AsyncParsableCommand {
     @Argument(help: "TaskID to heartbeat")
     var taskId: String
 
-    @Option(name: .long, help: "Unique run identifier")
-    var runId: String
-
-    @Option(name: .long, help: "Lock token from claim")
-    var lockToken: String
-
-    @Option(name: .long, help: "Lease duration in minutes")
-    var leaseMin: Int = 20
-
     func run() async throws {
         do {
+            let state = try LockStateManager.load(expectedTaskId: taskId)
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
 
             // Verify current lock
-            let lockCheck = LockVerifier.verifyLock(page: page, expectedToken: lockToken)
+            let lockCheck = LockVerifier.verifyLock(page: page, expectedToken: state.lockToken)
             guard case .success = lockCheck else {
                 JSONOut.error(
                     code: "LOST_LOCK",
@@ -32,11 +24,20 @@ struct Heartbeat: AsyncParsableCommand {
                 )
             }
 
-            let newExpiry = Time.iso8601(Time.leaseExpiry(minutes: leaseMin))
+            let newExpiry = Time.iso8601(Time.leaseExpiry(minutes: 15))
             try await NotionCLI.updateForHeartbeat(
                 pageId: page.pageId,
                 lockedUntil: newExpiry
             )
+
+            // Update state file with new expiry
+            try LockStateManager.save(LockState(
+                taskId: state.taskId,
+                runId: state.runId,
+                lockToken: state.lockToken,
+                lockExpires: newExpiry,
+                pageId: state.pageId
+            ))
 
             JSONOut.printEncodable(NTaskSuccessResponse(task: TaskSummary(
                 pageId: page.pageId,

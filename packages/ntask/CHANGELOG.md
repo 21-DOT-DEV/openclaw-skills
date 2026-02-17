@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.4.0] - 2026-02-17
+
+### Breaking Changes
+- **Removed CLI flags**: `--run-id` and `--lock-token` removed from `claim`, `heartbeat`, `block`, `review`, and `cancel`. Lock management is now internal via `~/.openclaw/state/current-task.json`.
+- **Removed `--lease-min` flag** from `heartbeat`. Lease is fixed at 15 minutes.
+- **Removed `complete` command**. Use `ntask review --summary "..."` instead.
+- **Exit codes realigned** to CLI Contract v1.1.0: CONFLICT=20, LOST_LOCK=21, API_ERROR=30, MISCONFIGURED=40, INCOMPLETE_SUBTASKS=41, NO_TASKS=10.
+- **Default lease** changed from 20 to 15 minutes on `claim`.
+- **Default create status** changed from Ready to Backlog.
+
+### Added
+- **Internal lock state file**: `claim` writes `~/.openclaw/state/current-task.json`; `heartbeat`, `block`, `review`, `cancel` read it; `review`, `block`, `cancel` clear it.
+- **`unblock` command**: Blocked → In Progress (lock-free, agent must re-claim).
+- **`escalate` command** (provisional stub): Returns MISCONFIGURED — requires "Escalated" status in Notion DB.
+- **`--summary` flag on `review`**: Required work summary written as task comment.
+- **`--class` alias** for `--class-of-service` on `create` and `update`.
+- **Re-claim detection** in `claim`: In Progress tasks with no active lock can be re-claimed (preserves Started At).
+- **Conditional lock on `cancel`**: Lock-free from non-In Progress statuses; idempotent on terminal statuses (Done/Canceled).
+- **Sub-task completion guard** on `review`: Blocks review if sub-tasks are incomplete (exit 41).
+- **`noTasks` and `incompleteSubtasks`** error cases in `NTaskError`.
+
+### Changed
+- `rework` transition: Review → In Progress (was Review → Ready).
+
 ## [0.3.2] - 2026-02-15
 
 ### Fixed

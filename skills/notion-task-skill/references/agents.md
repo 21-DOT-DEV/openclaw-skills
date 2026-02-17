@@ -1,8 +1,7 @@
 # Worker Agent — AGENTS.md Reference
 
 > **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
-> Binary update pending in Phase 1 Feature 1. Worker crons should remain
-> disabled until the binary ships.
+> Binary v0.4.0 shipped 2026-02-17 — all documented commands now match the binary.
 
 Copy this to your worker agent's workspace directory (e.g.
 `~/.openclaw/agents/worker/workspace/AGENTS.md`).
