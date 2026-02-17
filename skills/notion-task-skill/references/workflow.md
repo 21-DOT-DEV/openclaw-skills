@@ -1,8 +1,7 @@
 # Agent Workflow
 
 > **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
-> Binary update pending in Phase 1 Feature 1. Worker crons should remain
-> disabled until the binary ships.
+> Binary v0.4.0 shipped 2026-02-17 — all documented commands now match the binary.
 
 This document defines the complete agent lifecycle for working with Notion tasks
 via the `ntask` CLI.
@@ -98,6 +97,12 @@ ntask heartbeat <task-id>
 
 **Heartbeat cadence:** every 7 minutes (half of the default 15-minute lease).
 
+**Heartbeat Timing Details:**
+- Default lease is 15 minutes (CLI Contract v1.0.0 default).
+- Heartbeat at half the lease interval — every 7 minutes for the default 15-minute lease.
+- If you miss a heartbeat, the lock expires and another agent can steal the task via `claim`.
+- For long-running work, integrate heartbeat calls into your work loop on a fixed cadence.
+
 - **Success:** continue working. Note the updated `lock_expires`.
 - **LOST_LOCK (exit 21):** **stop work immediately**. Run `next` to get a new task.
 - **API_ERROR (exit 30):** follow the API error retry policy. If all retries fail, stop work and run `next`.
@@ -176,6 +181,35 @@ After 3 failed retries:
 **Rate limits:** The Notion API enforces 3 requests/second. HTTP 429 (Too Many
 Requests) is a common cause of API_ERROR. The backoff schedule above handles
 this automatically.
+
+### Error Retry Patterns (E2E Validated)
+
+**Pattern 1 — Retry on claim API_ERROR (no lock held):**
+```
+ntask next         → SUCCESS (got TASK-42)
+ntask claim TASK-42 → API_ERROR (exit 30)
+  retry 1 (2s wait) → API_ERROR
+  retry 2 (4s wait) → API_ERROR
+  retry 3 (8s wait) → API_ERROR
+  fallback: ntask next → get a different task
+```
+Safe to retry claim because no lock is held yet.
+
+**Pattern 2 — Retry on heartbeat API_ERROR (lock held):**
+```
+ntask heartbeat TASK-42 → API_ERROR (exit 30)
+  retry 1 (2s wait) → API_ERROR
+  retry 2 (4s wait) → API_ERROR
+  retry 3 (8s wait) → API_ERROR
+  fallback: ntask block TASK-42 --reason "Repeated API failures"
+```
+Block the task rather than losing work silently.
+
+**Pattern 3 — Non-retryable errors:**
+- CONFLICT (20): Never retry — run `next` immediately.
+- LOST_LOCK (21): Never retry — stop work, run `next`.
+- MISCONFIGURED (40): Never retry — run `doctor`, surface to user.
+- INCOMPLETE_SUBTASKS (41): Never retry — stop, report to human.
 
 ## Idempotency
 

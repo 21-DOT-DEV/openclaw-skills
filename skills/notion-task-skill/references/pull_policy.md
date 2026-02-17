@@ -1,8 +1,7 @@
 # Pull Policy — Deterministic Task Selection and Locking
 
 > **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
-> Binary update pending in Phase 1 Feature 1. Worker crons should remain
-> disabled until the binary ships.
+> Binary v0.4.0 shipped 2026-02-17 — all documented commands now match the binary.
 
 This document defines exactly how ntask selects, claims, and manages tasks.
 These rules are **deterministic** — given the same database state, every agent
@@ -73,6 +72,19 @@ The **first** task after sorting is returned by `ntask next`.
    - `Unblock Action` → provided unblock action
    - Lock remains until natural expiry (not cleared on block).
 4. Return success.
+
+### Block → Unblock Lifecycle
+
+The full block/unblock cycle works as follows:
+
+1. **Block**: Agent calls `ntask block <id> --reason "..." --unblock-action "..."` (requires lock).
+2. **Unblock**: The `unblock` command is provisional (not yet implemented in the binary).
+   - **Workaround**: Use `ntask update <id> --status Ready` to move from Blocked → Ready.
+   - Note: `ntask update --status "In Progress"` is explicitly blocked — you must go through Ready then re-claim.
+3. **Re-claim**: Agent calls `ntask claim <id>` to re-acquire the lock and resume work.
+
+> **Important**: `Blocker Reason` and `Unblock Action` are preserved through the unblock
+> transition as audit trail — they are only overwritten if `block` is called again.
 
 ### Review (review)
 

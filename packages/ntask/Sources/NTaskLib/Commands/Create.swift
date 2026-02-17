@@ -12,14 +12,14 @@ struct Create: AsyncParsableCommand {
     @Option(name: .long, help: "Numeric priority 1-3 (higher = more urgent)")
     var priority: Int = 2
 
-    @Option(name: .long, help: "Class of service: Expedite, Fixed Date, Standard, Intangible")
+    @Option(name: [.long, .customLong("class")], help: "Class of service: Expedite, Fixed Date, Standard, Intangible")
     var classOfService: ClassOfService = .standard
 
     @Option(name: .long, help: "Parent TaskID to create a subtask under")
     var parent: String?
 
     @Option(name: .long, help: "Initial status: Backlog or Ready")
-    var status: TaskStatus = .ready
+    var status: TaskStatus = .backlog
 
     func run() async throws {
         do {

@@ -1,8 +1,7 @@
 # Examples — ntask Command Lines and JSON Outputs
 
 > **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
-> Binary update pending in Phase 1 Feature 1. Worker crons should remain
-> disabled until the binary ships.
+> Binary v0.4.0 shipped 2026-02-17 — all documented commands now match the binary.
 
 All commands output JSON by default. No flags needed. The binary path shown
 assumes the skill is installed at `<workspace>/skills/notion-task-skill/bin/ntask`.
@@ -38,14 +37,26 @@ Check environment readiness:
 ntask doctor
 ```
 
+### Output Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `checks.notion_cli.found` | boolean | Whether the `ntn` binary is in PATH |
+| `checks.notion_cli.version` | string | `ntn` version string (e.g., `"ntn 0.5.23 (commit: ...)"`) |
+| `checks.notion_token.available` | boolean | Whether a Notion API token is accessible |
+| `checks.notion_token.source` | string | Token source: `"environment"` (env var) or `"system keyring"` (OS keychain) |
+| `checks.env_NOTION_TASKS_DB_ID` | boolean | Whether `NOTION_TASKS_DB_ID` env var is set |
+| `checks.env_NOTION_AGENT_USER_ID` | boolean | Whether `NOTION_AGENT_USER_ID` env var is set |
+| `checks.db_accessible` | boolean | Whether the Notion database is reachable (only checked if token + DB ID are present) |
+
 ### Success
 
 ```json
 {
   "ok": true,
   "checks": {
-    "notion_cli": { "found": true, "version": "0.6.0" },
-    "notion_token": { "available": true, "source": "environment" },
+    "notion_cli": { "found": true, "version": "ntn 0.5.23 (commit: 45ff02c, built: 2026-02-16T05:34:25Z)" },
+    "notion_token": { "available": true, "source": "system keyring" },
     "env_NOTION_TASKS_DB_ID": true,
     "env_NOTION_AGENT_USER_ID": true,
     "db_accessible": true
@@ -64,6 +75,21 @@ ntask doctor
     "notion_token": { "available": true, "source": "environment" },
     "env_NOTION_TASKS_DB_ID": true,
     "env_NOTION_AGENT_USER_ID": true
+  }
+}
+```
+
+### Failure (missing env vars)
+
+```json
+{
+  "ok": false,
+  "error": { "code": "MISCONFIGURED", "message": "Environment check failed: NOTION_TASKS_DB_ID not configured" },
+  "checks": {
+    "notion_cli": { "found": true, "version": "ntn 0.5.23 (commit: 45ff02c, built: 2026-02-16T05:34:25Z)" },
+    "notion_token": { "available": true, "source": "system keyring" },
+    "env_NOTION_TASKS_DB_ID": false,
+    "env_NOTION_AGENT_USER_ID": false
   }
 }
 ```
@@ -207,6 +233,30 @@ Create a new top-level task:
 ntask create --title "Implement auth flow" \
   --priority 2 --class Standard
 ```
+
+Create an EXPEDITE task (highest priority class — sorts above all other classes):
+
+```bash
+ntask create --title "Fix critical auth regression" \
+  --priority 1 --class-of-service Expedite
+```
+
+```json
+{
+  "ok": true,
+  "task": {
+    "page_id": "new-page-id",
+    "task_id": "TASK-211",
+    "status": "Ready",
+    "class": "EXPEDITE",
+    "priority": 1
+  }
+}
+```
+
+> **Note**: The `--class-of-service` flag accepts case-insensitive values:
+> `Expedite`, `expedite`, `EXPEDITE` all work. The JSON output uses
+> SCREAMING_SNAKE (`EXPEDITE`, `STANDARD`, etc.).
 
 Create a subtask linked to a parent:
 

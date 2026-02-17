@@ -12,7 +12,7 @@ struct Update: AsyncParsableCommand {
     @Option(name: .long, help: "New priority value")
     var priority: Int?
 
-    @Option(name: .long, help: "New class of service: Expedite, Fixed Date, Standard, Intangible")
+    @Option(name: [.long, .customLong("class")], help: "New class of service: Expedite, Fixed Date, Standard, Intangible")
     var classOfService: ClassOfService?
 
     @Option(name: .long, help: "New status (cannot set to Done — use complete)")

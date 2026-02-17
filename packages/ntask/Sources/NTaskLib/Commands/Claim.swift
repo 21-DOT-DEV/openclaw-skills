@@ -9,24 +9,58 @@ struct Claim: AsyncParsableCommand {
     @Argument(help: "TaskID to claim")
     var taskId: String
 
-    @Option(name: .long, help: "Unique run identifier")
-    var runId: String
-
     @Option(name: .long, help: "Lease duration in minutes")
-    var leaseMin: Int = 20
+    var leaseMin: Int = 15
 
     func run() async throws {
         do {
             let page = try await NotionCLI.resolveTaskIdToPage(taskId)
+            let runId = UUID().uuidString
             let lockToken = UUID().uuidString
             let lockedUntil = Time.iso8601(Time.leaseExpiry(minutes: leaseMin))
 
-            try await NotionCLI.updateForClaim(
-                pageId: page.pageId,
-                runId: runId,
-                lockToken: lockToken,
-                lockedUntil: lockedUntil
-            )
+            // Determine claim path based on current status
+            let isReClaim: Bool
+            switch page.status {
+            case "Ready":
+                isReClaim = false
+            case "In Progress":
+                // Re-claim: task is In Progress but lock is absent or expired
+                if let token = page.lockToken, !token.isEmpty,
+                   let expires = page.lockExpires, !Time.isExpired(expires) {
+                    // Active lock held by someone — conflict
+                    JSONOut.error(
+                        code: "CONFLICT",
+                        message: "Task is already claimed with an active lock",
+                        task: page.toTaskSummary(),
+                        exitCode: ExitCodes.conflict
+                    )
+                }
+                isReClaim = true
+            default:
+                JSONOut.error(
+                    code: "MISCONFIGURED",
+                    message: "Task must be in Ready or In Progress status to claim (current: \(page.status ?? "unknown"))",
+                    task: page.toTaskSummary(),
+                    exitCode: ExitCodes.misconfigured
+                )
+            }
+
+            if isReClaim {
+                try await NotionCLI.updateForReClaim(
+                    pageId: page.pageId,
+                    runId: runId,
+                    lockToken: lockToken,
+                    lockedUntil: lockedUntil
+                )
+            } else {
+                try await NotionCLI.updateForClaim(
+                    pageId: page.pageId,
+                    runId: runId,
+                    lockToken: lockToken,
+                    lockedUntil: lockedUntil
+                )
+            }
 
             // Verify claim by re-reading
             let verified = try await NotionCLI.retrievePage(page.pageId)
@@ -48,6 +82,13 @@ struct Claim: AsyncParsableCommand {
                     lockExpires: lockedUntil,
                     startedAt: verified.startedAt
                 )
+                try LockStateManager.save(LockState(
+                    taskId: taskId,
+                    runId: runId,
+                    lockToken: lockToken,
+                    lockExpires: lockedUntil,
+                    pageId: verified.pageId
+                ))
                 JSONOut.printEncodable(NTaskSuccessResponse(task: summary))
             case .conflict:
                 JSONOut.error(

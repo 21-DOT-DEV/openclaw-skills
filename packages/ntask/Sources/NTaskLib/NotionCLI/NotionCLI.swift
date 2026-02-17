@@ -173,6 +173,22 @@ enum NotionCLI {
         try await updatePage(pageId: pageId, properties: properties)
     }
 
+    /// Update page properties for re-claiming a task (In Progress with no lock).
+    /// Preserves Status, Assignee, and Started At — only sets lock fields.
+    static func updateForReClaim(
+        pageId: String,
+        runId: String,
+        lockToken: String,
+        lockedUntil: String
+    ) async throws {
+        let properties: [String: Any] = [
+            "Agent Run": ["rich_text": [["text": ["content": runId]]]],
+            "Lock Token": ["rich_text": [["text": ["content": lockToken]]]],
+            "Lock Expires": ["date": ["start": lockedUntil]]
+        ]
+        try await updatePage(pageId: pageId, properties: properties)
+    }
+
     /// Update page properties for heartbeat (extend lease).
     static func updateForHeartbeat(
         pageId: String,
@@ -312,10 +328,10 @@ enum NotionCLI {
         try await updatePage(pageId: pageId, properties: properties)
     }
 
-    /// Update page properties to send task back for rework (Review → Ready).
+    /// Update page properties to send task back for rework (Review → In Progress).
     static func updateForRework(pageId: String) async throws {
         let properties: [String: Any] = [
-            "Status": ["status": ["name": "Ready"]],
+            "Status": ["status": ["name": "In Progress"]],
             "Agent Run": ["rich_text": []],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
@@ -331,6 +347,18 @@ enum NotionCLI {
         let properties: [String: Any] = [
             "Status": ["status": ["name": "Canceled"]],
             "Blocker Reason": ["rich_text": [["text": ["content": reason]]]],
+            "Agent Run": ["rich_text": []],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
+        ]
+        try await updatePage(pageId: pageId, properties: properties)
+    }
+
+    /// Update page properties to unblock a task (Blocked → In Progress).
+    /// Preserves Blocker Reason and Unblock Action for audit trail.
+    static func updateForUnblock(pageId: String) async throws {
+        let properties: [String: Any] = [
+            "Status": ["status": ["name": "In Progress"]],
             "Agent Run": ["rich_text": []],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]

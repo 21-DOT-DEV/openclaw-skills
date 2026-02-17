@@ -380,10 +380,10 @@ struct ContractTests {
         #expect(taskJson["done_at"] as? String == "2026-01-02T00:00:00Z")
     }
 
-    @Test("Rework response has ok=true, status=Ready, and reason")
+    @Test("Rework response has ok=true, status=In Progress, and reason")
     func reworkResponseContract() throws {
         let task = TaskSummary(
-            pageId: "abc123", taskId: "TASK-42", status: "Ready", priority: 2,
+            pageId: "abc123", taskId: "TASK-42", status: "In Progress", priority: 2,
             taskClass: nil, agentRun: nil, lockToken: nil, lockExpires: nil,
             startedAt: nil, doneAt: nil, blockerReason: nil, unblockAction: nil,
             nextCheckAt: nil, completedSubtasks: nil, parentTaskId: nil,
@@ -394,7 +394,7 @@ struct ContractTests {
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         #expect(json["ok"] as? Bool == true)
         let taskJson = json["task"] as! [String: Any]
-        #expect(taskJson["status"] as? String == "Ready")
+        #expect(taskJson["status"] as? String == "In Progress")
         #expect(taskJson["reason"] as? String == "Needs markdown formatting")
     }
 
@@ -557,5 +557,122 @@ struct ContractTests {
         #expect(decoded.error.message == "ntn not found")
         #expect(decoded.checks.notionCli?.found == false)
         #expect(decoded.checks.envNotionAgentUserId == false)
+    }
+
+    // MARK: - Unblock Response Contract
+
+    @Test("Unblock response has ok=true and status=In Progress with preserved blocker info")
+    func unblockResponseContract() throws {
+        let task = TaskSummary(
+            pageId: "abc123", taskId: "TASK-42", status: "In Progress",
+            blockerReason: "Waiting on API key", unblockAction: "Request from admin"
+        )
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "In Progress")
+        #expect(taskJson["blocker_reason"] as? String == "Waiting on API key")
+        #expect(taskJson["unblock_action"] as? String == "Request from admin")
+    }
+
+    // MARK: - Escalate Provisional Stub Contract
+
+    @Test("Escalate stub returns MISCONFIGURED error")
+    func escalateStubContract() throws {
+        let response = NTaskErrorResponse(
+            error: NTaskErrorPayload(code: "MISCONFIGURED", message: "escalate is not available in this version")
+        )
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == false)
+        let errorObj = json["error"] as! [String: Any]
+        #expect(errorObj["code"] as? String == "MISCONFIGURED")
+    }
+
+    // MARK: - Cancel Idempotency Contract
+
+    @Test("Cancel on already-terminal task returns SUCCESS with current status")
+    func cancelIdempotencyContract() throws {
+        let task = TaskSummary(pageId: "abc123", taskId: "TASK-42", status: "Done", reason: "already done")
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "Done")
+    }
+
+    // MARK: - Re-claim Response Contract
+
+    @Test("Re-claim response preserves started_at from original claim")
+    func reClaimResponseContract() throws {
+        let task = TaskSummary(
+            pageId: "abc123", taskId: "TASK-42", status: "In Progress",
+            agentRun: "new-run-id", lockToken: "new-token",
+            lockExpires: "2026-02-17T10:30:00Z", startedAt: "2026-02-16T08:00:00Z"
+        )
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "In Progress")
+        #expect(taskJson["started_at"] as? String == "2026-02-16T08:00:00Z")
+        #expect(taskJson["lock_token"] as? String == "new-token")
+    }
+
+    // MARK: - Cancel Lock-Free Contract
+
+    @Test("Cancel from non-In Progress returns Canceled without lock")
+    func cancelLockFreeContract() throws {
+        let task = TaskSummary(
+            pageId: "abc123", taskId: "TASK-42", status: "Canceled", reason: "no longer needed"
+        )
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "Canceled")
+        #expect(taskJson["reason"] as? String == "no longer needed")
+    }
+
+    @Test("Cancel on already-Canceled task returns SUCCESS with Canceled status")
+    func cancelIdempotentOnCanceled() throws {
+        let task = TaskSummary(
+            pageId: "abc123", taskId: "TASK-42", status: "Canceled", reason: "duplicate cancel"
+        )
+        let response = NTaskSuccessResponse(task: task)
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == true)
+        let taskJson = json["task"] as! [String: Any]
+        #expect(taskJson["status"] as? String == "Canceled")
+    }
+
+    // MARK: - INCOMPLETE_SUBTASKS Error Contract
+
+    @Test("INCOMPLETE_SUBTASKS error response has correct envelope")
+    func incompleteSubtasksErrorContract() throws {
+        let response = NTaskErrorResponse(
+            error: NTaskErrorPayload(code: "INCOMPLETE_SUBTASKS", message: "Cannot review: 2/5 sub-tasks still open"),
+            task: TaskSummary(pageId: "abc123", taskId: "TASK-42", status: "In Progress")
+        )
+        let data = try encoder.encode(response)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["ok"] as? Bool == false)
+        let errorObj = json["error"] as! [String: Any]
+        #expect(errorObj["code"] as? String == "INCOMPLETE_SUBTASKS")
+        let taskJson = json["task"] as? [String: Any]
+        #expect(taskJson?["status"] as? String == "In Progress")
+    }
+
+    // MARK: - Version 0.4.0
+
+    @Test("Version is 0.4.0")
+    func versionIs040() {
+        #expect(NTaskVersion.current == "0.4.0")
     }
 }
