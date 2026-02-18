@@ -56,6 +56,7 @@ struct TaskSummary: Codable, Equatable {
     let completedSubtasks: Int?
     let parentTaskId: String?
     let reason: String?
+    let acceptanceCriteria: String?
 
     enum CodingKeys: String, CodingKey {
         case pageId = "page_id"
@@ -74,6 +75,7 @@ struct TaskSummary: Codable, Equatable {
         case completedSubtasks = "completed_subtasks"
         case parentTaskId = "parent_task_id"
         case reason
+        case acceptanceCriteria = "acceptance_criteria"
     }
 
     init(
@@ -92,7 +94,8 @@ struct TaskSummary: Codable, Equatable {
         nextCheckAt: String? = nil,
         completedSubtasks: Int? = nil,
         parentTaskId: String? = nil,
-        reason: String? = nil
+        reason: String? = nil,
+        acceptanceCriteria: String? = nil
     ) {
         self.pageId = pageId
         self.taskId = taskId
@@ -110,6 +113,7 @@ struct TaskSummary: Codable, Equatable {
         self.completedSubtasks = completedSubtasks
         self.parentTaskId = parentTaskId
         self.reason = reason
+        self.acceptanceCriteria = acceptanceCriteria
     }
 }
 

@@ -21,6 +21,9 @@ struct Create: AsyncParsableCommand {
     @Option(name: .long, help: "Initial status: Backlog or Ready")
     var status: TaskStatus = .backlog
 
+    @Option(name: [.long, .customLong("ac")], help: "Acceptance criteria (rich text)")
+    var acceptanceCriteria: String?
+
     func run() async throws {
         do {
             // Validate status
@@ -42,12 +45,15 @@ struct Create: AsyncParsableCommand {
             }
 
             // Build properties
-            let properties: [String: Any] = [
+            var properties: [String: Any] = [
                 "title": ["title": [["text": ["content": title]]]],
                 "Status": ["status": ["name": status.rawValue]],
                 "Priority": ["number": priority],
                 "Class": ["select": ["name": classOfService.rawValue]]
             ]
+            if let ac = acceptanceCriteria {
+                properties["Acceptance Criteria"] = ["rich_text": [["text": ["content": ac]]]]
+            }
 
             // If parent specified, validate it exists before creating
             var parentTaskId: String? = nil
