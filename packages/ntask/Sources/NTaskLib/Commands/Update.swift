@@ -18,13 +18,16 @@ struct Update: AsyncParsableCommand {
     @Option(name: .long, help: "New status (cannot set to Done — use complete)")
     var status: TaskStatus?
 
+    @Option(name: [.long, .customLong("ac")], help: "Acceptance criteria (rich text)")
+    var acceptanceCriteria: String?
+
     func run() async throws {
         do {
             // Validate at least one property provided
-            guard priority != nil || classOfService != nil || status != nil else {
+            guard priority != nil || classOfService != nil || status != nil || acceptanceCriteria != nil else {
                 JSONOut.error(
                     code: "MISCONFIGURED",
-                    message: "At least one property must be specified (--priority, --class-of-service, --status)",
+                    message: "At least one property must be specified (--priority, --class-of-service, --status, --acceptance-criteria)",
                     exitCode: ExitCodes.misconfigured
                 )
             }
@@ -66,6 +69,9 @@ struct Update: AsyncParsableCommand {
             }
             if let s = status {
                 properties["Status"] = ["status": ["name": s.rawValue]]
+            }
+            if let ac = acceptanceCriteria {
+                properties["Acceptance Criteria"] = ["rich_text": [["text": ["content": ac]]]]
             }
 
             try await NotionCLI.updateProperties(

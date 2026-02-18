@@ -171,6 +171,14 @@ struct NotionPage: Decodable {
         }
     }
 
+    var acceptanceCriteria: String? {
+        switch properties["Acceptance Criteria"] {
+        case .richText(let text): return text.isEmpty ? nil : text
+        case .title(let text): return text.isEmpty ? nil : text
+        default: return nil
+        }
+    }
+
     func toTaskSummary() -> TaskSummary {
         TaskSummary(
             pageId: pageId,
@@ -185,7 +193,8 @@ struct NotionPage: Decodable {
             doneAt: doneAt,
             blockerReason: blockerReason,
             unblockAction: unblockAction,
-            completedSubtasks: completedSubtasks
+            completedSubtasks: completedSubtasks,
+            acceptanceCriteria: acceptanceCriteria
         )
     }
 
