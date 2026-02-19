@@ -383,7 +383,7 @@ struct ContractTests {
     @Test("Rework response has ok=true, status=In Progress, and reason")
     func reworkResponseContract() throws {
         let task = TaskSummary(
-            pageId: "abc123", taskId: "TASK-42", status: "In Progress", priority: 2,
+            pageId: "abc123", taskId: "TASK-42", status: "Ready", priority: 2,
             taskClass: nil, agentRun: nil, lockToken: nil, lockExpires: nil,
             startedAt: nil, doneAt: nil, blockerReason: nil, unblockAction: nil,
             nextCheckAt: nil, completedSubtasks: nil, parentTaskId: nil,
@@ -394,7 +394,7 @@ struct ContractTests {
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         #expect(json["ok"] as? Bool == true)
         let taskJson = json["task"] as! [String: Any]
-        #expect(taskJson["status"] as? String == "In Progress")
+        #expect(taskJson["status"] as? String == "Ready")
         #expect(taskJson["reason"] as? String == "Needs markdown formatting")
     }
 

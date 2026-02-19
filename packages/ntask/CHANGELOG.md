@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.1] - 2026-02-19
+
+### Fixed
+- **`rework` now transitions Review → Ready** (was Review → In Progress). Reworked tasks were invisible to `ntask next` which only queries Ready status. This aligns with industry standard (Jira, Linear, Temporal all reopen to a ready/available state). Rework context is preserved via the `--reason` comment.
+
 ## [0.4.0] - 2026-02-17
 
 ### Breaking Changes
