@@ -31,7 +31,7 @@ struct Rework: AsyncParsableCommand {
             JSONOut.printEncodable(NTaskSuccessResponse(task: TaskSummary(
                 pageId: page.pageId,
                 taskId: taskId,
-                status: "In Progress",
+                status: "Ready",
                 reason: reason
             )))
         } catch let error as NTaskError {

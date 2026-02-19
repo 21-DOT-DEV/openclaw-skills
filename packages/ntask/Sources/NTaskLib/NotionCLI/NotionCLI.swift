@@ -328,10 +328,12 @@ enum NotionCLI {
         try await updatePage(pageId: pageId, properties: properties)
     }
 
-    /// Update page properties to send task back for rework (Review → In Progress).
+    /// Update page properties to send task back for rework (Review → Ready).
+    /// Uses Ready (not In Progress) so `ntask next` can discover the task.
+    /// Rework context is preserved via the --reason comment, not status.
     static func updateForRework(pageId: String) async throws {
         let properties: [String: Any] = [
-            "Status": ["status": ["name": "In Progress"]],
+            "Status": ["status": ["name": "Ready"]],
             "Agent Run": ["rich_text": []],
             "Lock Token": ["rich_text": []],
             "Lock Expires": ["date": NSNull()]
