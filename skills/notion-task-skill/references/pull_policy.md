@@ -75,13 +75,135 @@ The **first** task after sorting is returned by `ntask next`.
 
 ### Block → Unblock Lifecycle
 
-The full block/unblock cycle works as follows:
+> **Since v0.4.0 (2026-02-17)**: The `ntask unblock` command is fully implemented.
 
-1. **Block**: Agent calls `ntask block <id> --reason "..." --unblock-action "..."` (requires lock).
-2. **Unblock**: The `unblock` command is provisional (not yet implemented in the binary).
-   - **Workaround**: Use `ntask update <id> --status Ready` to move from Blocked → Ready.
-   - Note: `ntask update --status "In Progress"` is explicitly blocked — you must go through Ready then re-claim.
-3. **Re-claim**: Agent calls `ntask claim <id>` to re-acquire the lock and resume work.
+The block/unblock lifecycle allows agents to pause work when encountering obstacles
+(missing requirements, external blockers, ambiguous acceptance criteria) and later
+resume from the exact same state.
+
+#### Block Command
+
+**Lock required.** Transitions `In Progress → Blocked`.
+
+```bash
+ntask block <task-id> --reason "Missing API credentials" --unblock-action "Add credentials to .env"
+```
+
+**Behavior:**
+1. Verifies lock ownership (returns `LOST_LOCK` if token mismatch)
+2. Sets `Status` to `Blocked`
+3. Sets `Blocker Reason` (required, describes the obstacle)
+4. Sets `Unblock Action` (required, describes what's needed to proceed)
+5. **Retains the lock** until natural expiry (not cleared on block)
+6. Task remains assigned to the agent but is filtered out of `ntask next` results
+
+**Fields set:**
+- `Status`: `Blocked`
+- `Blocker Reason`: provided reason text
+- `Unblock Action`: provided action text
+- Lock fields (`Lock Token`, `Lock Expires`, `Agent Run`) remain unchanged
+
+#### Unblock Command
+
+**No lock required.** Transitions `Blocked → In Progress`.
+
+```bash
+ntask unblock <task-id>
+```
+
+**Behavior:**
+1. Validates `Status` is `Blocked` (returns `MISCONFIGURED` otherwise)
+2. Sets `Status` to `In Progress`
+3. **Preserves** `Blocker Reason` and `Unblock Action` as audit trail
+4. Does **not** acquire a lock — task is In Progress but unlocked
+5. Agent must re-claim to resume work
+
+**Fields preserved:**
+- `Blocker Reason`: kept for audit trail
+- `Unblock Action`: kept for audit trail
+
+**Fields changed:**
+- `Status`: `In Progress`
+
+> **Legacy workaround (pre-v0.4.0)**: `ntask update <id> --status Ready` was used to
+> manually unblock. This still works but is no longer the canonical path.
+
+#### Re-claim Requirement
+
+After unblock, the task is `In Progress` but has **no active lock**. The agent
+(or a different agent) must re-claim before resuming work:
+
+```bash
+ntask claim <task-id>
+```
+
+This re-acquires the lock, assigns the task, and allows work to continue. The
+prior `Blocker Reason` and `Unblock Action` remain visible in the task properties
+as context.
+
+#### Full Lifecycle Example
+
+```bash
+# Agent claims task
+ntask claim TASK-123
+# → Status: In Progress, Lock acquired
+
+# Agent encounters blocker (missing acceptance criteria)
+ntask block TASK-123 \
+  --reason "Missing Acceptance Criteria (standing rule)" \
+  --unblock-action "Add AC defining done state"
+# → Status: Blocked, Lock retained
+
+# ...time passes, Chris adds Acceptance Criteria...
+
+# Unblock (lock-free operation, can be run by anyone)
+ntask unblock TASK-123
+# → Status: In Progress, no lock
+
+# Re-claim to resume work
+ntask claim TASK-123
+# → Status: In Progress, Lock re-acquired
+
+# Complete work and submit for review
+ntask review TASK-123 --summary "Completed all AC items"
+# → Status: Review, Lock released
+```
+
+#### State Machine Diagram
+
+```
+┌─────────┐
+│  Ready  │◄──────────────────────────┐
+└────┬────┘                           │
+     │ claim                          │ rework
+     ▼                                │
+┌──────────────┐  block        ┌─────┴─────┐
+│ In Progress  │──────────────►│  Blocked  │
+│  (locked)    │               │ (locked)* │
+└──────┬───────┘               └─────┬─────┘
+       │                             │
+       │ review                      │ unblock
+       ▼                             ▼
+   ┌────────┐                ┌──────────────┐
+   │ Review │                │ In Progress  │
+   └────┬───┘                │ (unlocked)** │
+        │                    └──────┬───────┘
+        │ approve                   │
+        ▼                           │ claim
+    ┌──────┐                        │
+    │ Done │                        │
+    └──────┘                        │
+                                    │
+                                    └──────────┐
+                                               │
+         ┌─────────────────────────────────────┘
+         │ (re-claim to resume work)
+         ▼
+    (back to In Progress, locked)
+
+* Lock retained during block
+** After unblock, lock is cleared — must re-claim
+```
 
 > **Important**: `Blocker Reason` and `Unblock Action` are preserved through the unblock
 > transition as audit trail — they are only overwritten if `block` is called again.
