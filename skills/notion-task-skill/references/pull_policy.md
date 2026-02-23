@@ -1,6 +1,6 @@
 # Pull Policy — Deterministic Task Selection and Locking
 
-> **Contract alignment**: These docs align to ntask CLI Contract v1.0.0.
+> **Contract alignment**: These docs align to ntask CLI Contract v2.0.0.
 > Binary v0.4.0 shipped 2026-02-17 — all documented commands now match the binary.
 
 This document defines exactly how ntask selects, claims, and manages tasks.
@@ -138,8 +138,37 @@ ntask claim <task-id>
 ```
 
 This re-acquires the lock, assigns the task, and allows work to continue. The
-prior `Blocker Reason` and `Unblock Action` remain visible in the task properties
+`claim` command explicitly supports this **re-claim** path (In Progress with no
+lock → In Progress with lock) — see CLI Contract v2.0.0 §claim. The prior
+`Blocker Reason` and `Unblock Action` remain visible in the task properties
 as context.
+
+#### Orphan Risk & Re-claim Discovery
+
+**Q: Won't unblocked tasks become orphans since `ntask next` only picks Ready tasks?**
+
+No — this is by design, but requires understanding three mechanisms:
+
+1. **`ntask next` does NOT discover unblocked tasks.** It only returns Ready
+   tasks. An unblocked task sits in In Progress (no lock) and will not appear
+   in the next-task queue.
+
+2. **`ntask reap` does NOT reset unblocked tasks.** The reap command only
+   targets tasks that are In Progress **with an expired lock** (Lock Token
+   set + Lock Expires in the past). Tasks in In Progress with no lock at all
+   (e.g., after unblock) are explicitly excluded — they are awaiting
+   intentional re-claim, not orphan recovery.
+
+3. **Re-claim requires knowing the task ID.** Since neither `next` nor `reap`
+   will surface the task, an agent must be explicitly told to
+   `ntask claim TASK-<id>`. This typically happens when:
+   - A human resolves the blocker and runs `ntask unblock` + `ntask claim`
+   - A scheduled automation detects unblocked tasks and dispatches re-claims
+   - The original blocking agent stored the task ID and re-claims after resolution
+
+**Design rationale**: Unblocked tasks need intentional re-engagement, not
+automatic queue pickup. The blocker was an external dependency — a human or
+automation should confirm it's resolved before work resumes.
 
 #### Full Lifecycle Example
 
@@ -179,30 +208,24 @@ ntask review TASK-123 --summary "Completed all AC items"
      ▼                                │
 ┌──────────────┐  block        ┌─────┴─────┐
 │ In Progress  │──────────────►│  Blocked  │
-│  (locked)    │               │ (locked)* │
+│  (locked)    │               │           │
 └──────┬───────┘               └─────┬─────┘
        │                             │
        │ review                      │ unblock
        ▼                             ▼
    ┌────────┐                ┌──────────────┐
    │ Review │                │ In Progress  │
-   └────┬───┘                │ (unlocked)** │
+   └────┬───┘                │ (unlocked)*  │
         │                    └──────┬───────┘
         │ approve                   │
-        ▼                           │ claim
-    ┌──────┐                        │
-    │ Done │                        │
-    └──────┘                        │
-                                    │
-                                    └──────────┐
-                                               │
-         ┌─────────────────────────────────────┘
-         │ (re-claim to resume work)
-         ▼
-    (back to In Progress, locked)
+        ▼                           │ claim (re-claim)
+    ┌──────┐                        ▼
+    │ Done │               (back to In Progress, locked)
+    └──────┘
 
-* Lock retained during block
-** After unblock, lock is cleared — must re-claim
+* After unblock: no lock, not discoverable by `ntask next`,
+  not reaped by `ntask reap` — requires explicit re-claim.
+  See "Orphan Risk & Re-claim Discovery" above.
 ```
 
 > **Important**: `Blocker Reason` and `Unblock Action` are preserved through the unblock
@@ -243,15 +266,18 @@ No sub-task completion guard — reviewer authority overrides mechanical checks.
 1. Read the page and validate `Status` is `Review`.
 2. If status is not Review → return `MISCONFIGURED`.
 3. Update properties:
-   - `Status` → `In Progress`
+   - `Status` → `Ready`
    - Clear lock fields (set to null/empty):
      - `Agent Run` → `""` (empty string)
      - `Lock Token` → `""` (empty string)
      - `Lock Expires` → null (clear the Date)
+   - `Assignee` → preserved (audit trail policy)
 4. Add a comment with the `--reason` text (always, since reason is required).
 5. Return success.
 
-The task moves to In Progress with no active lock. Agent must re-claim via `ntask claim <task-id>` to resume work.
+The task returns to Ready status and is discoverable by `ntask next`. Unlike
+`unblock` (which moves to In Progress requiring explicit re-claim), rework
+returns the task to the ready queue for automatic pickup.
 
 ### Cancel (cancel) — conditional lock
 
