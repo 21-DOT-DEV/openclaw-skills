@@ -328,6 +328,18 @@ enum NotionCLI {
         try await updatePage(pageId: pageId, properties: properties)
     }
 
+    /// Update page properties to reap an orphaned task (In Progress → Ready).
+    /// Clears lock fields and agent run. Preserves Assignee and Started At.
+    static func updateForReap(pageId: String) async throws {
+        let properties: [String: Any] = [
+            "Status": ["status": ["name": "Ready"]],
+            "Agent Run": ["rich_text": []],
+            "Lock Token": ["rich_text": []],
+            "Lock Expires": ["date": NSNull()]
+        ]
+        try await updatePage(pageId: pageId, properties: properties)
+    }
+
     /// Update page properties to send task back for rework (Review → Ready).
     /// Uses Ready (not In Progress) so `ntask next` can discover the task.
     /// Rework context is preserved via the --reason comment, not status.

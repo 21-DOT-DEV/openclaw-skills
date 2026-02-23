@@ -191,6 +191,30 @@ struct CommentResponse: Codable {
     }
 }
 
+// MARK: - Reap Response
+
+struct ReapResponse: Codable {
+    let ok: Bool
+    let reaped: [ReapedTask]
+    let count: Int
+
+    init(reaped: [ReapedTask]) {
+        self.ok = true
+        self.reaped = reaped
+        self.count = reaped.count
+    }
+}
+
+struct ReapedTask: Codable {
+    let taskId: String
+    let lockExpiredAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case taskId = "task_id"
+        case lockExpiredAt = "lock_expired_at"
+    }
+}
+
 // MARK: - Version Info
 
 struct VersionInfo: Codable {
