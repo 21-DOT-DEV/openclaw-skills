@@ -671,8 +671,8 @@ struct ContractTests {
 
     // MARK: - Version 0.4.0
 
-    @Test("Version is 0.4.0")
-    func versionIs040() {
-        #expect(NTaskVersion.current == "0.4.0")
+    @Test("Version is 0.5.0")
+    func versionIs050() {
+        #expect(NTaskVersion.current == "0.5.0")
     }
 }
