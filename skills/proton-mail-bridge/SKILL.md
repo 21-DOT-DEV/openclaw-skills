@@ -130,9 +130,11 @@ Every message is routed out of Inbox (Inbox Zero invariant):
 
 The decision tree applies security rules first (IE-*), then routes
 through 14 priority-ordered steps including VIP sender detection,
-deadline extraction, and thread consolidation. See the reference
-file for full detection heuristics, periodic sweep tasks, and the
-triage summary format.
+deadline extraction, and thread consolidation. After categorizing
+and routing each message, the agent marks it as read
+(`himalaya flag add <ID> -f INBOX seen`) to prevent re-processing
+on subsequent cron cycles. See the reference file for full detection
+heuristics, periodic sweep tasks, and the triage summary format.
 
 ### Integrations
 

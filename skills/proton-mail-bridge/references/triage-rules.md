@@ -164,6 +164,7 @@ Log every triage action per OE-04 (`security.md`):
 | **Capture** | `himalaya envelope list -f INBOX -o json` | Read new inputs |
 | **Organize** | `himalaya message move <ID> -f INBOX -t <folder> -o json` | Route to PARA folders |
 | | `himalaya flag add <ID> -f INBOX flagged -o json` | Flag actionable items |
+| | `himalaya flag add <ID> -f INBOX seen -o json` | Mark processed messages as read |
 | **Distill** | (agent logic) | Summarize Action Required + Waiting On |
 | **Express** | Notification + triage summary | Output to user |
 
@@ -222,5 +223,8 @@ if anyof (
 - **No auto-reply**: triage never sends email. Read, move, flag only.
 - **Inbox Zero invariant**: every run ends with 0 unprocessed messages
   (2FA codes are intentionally left as short-lived exceptions).
+- **Mark as read**: every processed message must be flagged as `seen`
+  (`himalaya flag add <ID> -f INBOX seen`) after categorization to
+  prevent re-processing on subsequent cron cycles.
 - **User overrides**: custom VIP senders, keywords, and folder mappings
   take priority over defaults.
